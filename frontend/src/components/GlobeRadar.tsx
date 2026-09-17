@@ -19,10 +19,11 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
 
   useEffect(() => {
     if (!isClient || !mountRef.current) return;
+    const mountNode = mountRef.current;
 
     // --- Scene Setup ---
-    const width = mountRef.current.clientWidth;
-    const height = mountRef.current.clientHeight;
+    const width = mountNode.clientWidth;
+    const height = mountNode.clientHeight;
 
     const scene = new THREE.Scene();
     scene.background = null;
@@ -33,7 +34,7 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
-    mountRef.current.appendChild(renderer.domElement);
+    mountNode.appendChild(renderer.domElement);
 
     // --- Globe ---
     const globeRadius = 100;
@@ -142,9 +143,9 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
 
     // --- Resize Handler ---
     const handleResize = () => {
-      if (!mountRef.current) return;
-      const newWidth = mountRef.current.clientWidth;
-      const newHeight = mountRef.current.clientHeight;
+      if (!mountNode) return;
+      const newWidth = mountNode.clientWidth;
+      const newHeight = mountNode.clientHeight;
       camera.aspect = newWidth / newHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(newWidth, newHeight);
@@ -184,8 +185,8 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
       dom.removeEventListener('mouseleave', onMouseUp);
       cancelAnimationFrame(animationFrameId);
       
-      if (mountRef.current && dom) {
-        mountRef.current.removeChild(dom);
+      if (mountNode && dom) {
+        mountNode.removeChild(dom);
       }
       renderer.dispose();
       sphereGeometry.dispose();

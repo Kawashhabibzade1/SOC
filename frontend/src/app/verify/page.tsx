@@ -53,10 +53,10 @@ export default function OtpVerificationV7() {
           // --- OTP INPUT STATE ---
           <div className="flex flex-col items-center flex-1 animate-in fade-in zoom-in duration-300">
             <h2 className="text-[1.35rem] font-semibold text-white mb-3 text-center tracking-wide">
-              Let's verify your number
+              Let&apos;s verify your number
             </h2>
             <p className="text-zinc-500 text-sm text-center mb-12 px-2 leading-relaxed">
-              We've sent a 4-digit code to your phone. It'll auto-verify once entered.
+              We&apos;ve sent a 4-digit code to your phone. It&apos;ll auto-verify once entered.
             </p>
 
             {/* 2x2 Grid Layout */}
