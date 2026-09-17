@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Check, Lock } from 'lucide-react';
 
 export default function OtpVerificationV7() {
+  const router = useRouter();
   const [otp, setOtp] = useState(['', '', '', '']);
   const [isVerified, setIsVerified] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -25,7 +27,13 @@ export default function OtpVerificationV7() {
 
     // Trigger auto-verification when all fields are filled
     if (newOtp.every((digit) => digit !== '')) {
-      setTimeout(() => setIsVerified(true), 800); // Slight delay to simulate API verification
+      setTimeout(() => {
+        setIsVerified(true);
+        // Navigate to the Dashboard after a short delay so the user sees the success animation
+        setTimeout(() => {
+          router.push('/');
+        }, 1500);
+      }, 800);
     }
   };
 

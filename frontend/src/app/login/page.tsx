@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Eye, EyeOff, User, Mail, Lock, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, User, Lock, Loader2 } from 'lucide-react';
 
 export default function LoginV5() {
+  const router = useRouter();
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -13,8 +14,13 @@ export default function LoginV5() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // login/signup logic here
-    setTimeout(() => setLoading(false), 1500);
+    
+    // Simulate API login request
+    setTimeout(() => {
+      setLoading(false);
+      // Navigate to the OTP authenticator page after successful login
+      router.push('/verify');
+    }, 1500);
   };
 
   return (
@@ -30,14 +36,14 @@ export default function LoginV5() {
           <div className="relative z-10">
             <h1 className="text-3xl font-bold text-white mb-4 tracking-wider">HELLO, FRIEND!</h1>
             <p className="text-zinc-400 text-sm leading-relaxed max-w-[250px] mx-auto">
-              Enter your personal details to start your journey with us.
+              Enter your credentials to access the SOC Command Center.
             </p>
           </div>
         </div>
 
         {/* Right Panel (Form) */}
         <div className="md:w-7/12 p-8 md:p-12 border-t md:border-t-0 md:border-l border-zinc-800/50 relative bg-zinc-900/30">
-          <h2 className="text-3xl font-bold text-white mb-8 text-center">Sign Up</h2>
+          <h2 className="text-3xl font-bold text-white mb-8 text-center">Login</h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Username Field */}
@@ -49,22 +55,7 @@ export default function LoginV5() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Username"
-                className="w-full pl-12 pr-4 py-3.5 bg-zinc-950/50 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-white placeholder-zinc-500 outline-none transition-all"
-                required
-              />
-            </div>
-
-            {/* Email Field */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-zinc-500" />
-              </div>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
+                placeholder="Username or Email"
                 className="w-full pl-12 pr-4 py-3.5 bg-zinc-950/50 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-white placeholder-zinc-500 outline-none transition-all"
                 required
               />
@@ -98,19 +89,9 @@ export default function LoginV5() {
               disabled={loading}
               className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] mt-4 flex justify-center items-center disabled:opacity-70"
             >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Sign Up'}
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Login'}
             </button>
           </form>
-
-          {/* Footer Link */}
-          <div className="mt-8 text-center">
-            <p className="text-zinc-400 text-sm">
-              Already have an account?{' '}
-              <a href="#" className="text-blue-500 hover:text-blue-400 font-medium transition-colors">
-                Login
-              </a>
-            </p>
-          </div>
         </div>
       </div>
     </div>
