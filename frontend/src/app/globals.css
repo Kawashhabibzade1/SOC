@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Custom Properties ─────────────────────────── */
+:root {
+  --cyber-bg:        #020817;
+  --cyber-panel:     rgba(255, 255, 255, 0.03);
+  --cyber-border:    rgba(6, 182, 212, 0.12);
+  --cyber-red:       #ff003c;
+  --cyber-cyan:      #06b6d4;
+  --cyber-green:     #10b981;
+  --cyber-orange:    #f97316;
+
+  --font-orbitron:   'Orbitron', sans-serif;
+  --font-mono:       'Share Tech Mono', monospace;
+  --font-inter:      'Inter', sans-serif;
+}
+
+/* ─── Base Reset ─────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--cyber-bg);
+  color: #ffffff;
+  font-family: var(--font-inter);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Custom Scrollbar ───────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(6, 182, 212, 0.3);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.6);
+}
+
+/* ─── Glass Panel ────────────────────────────────────── */
+@layer components {
+  .glass-panel {
+    @apply relative overflow-hidden;
+    background: var(--cyber-panel);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--cyber-border);
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .glass-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Panel header divider with glow */
+  .panel-header {
+    @apply flex items-center justify-between px-4 py-3;
+    border-bottom: 1px solid rgba(6, 182, 212, 0.1);
+    background: rgba(6, 182, 212, 0.03);
+  }
+
+  /* Glow text variants */
+  .glow-cyan   { text-shadow: 0 0 12px rgba(6, 182, 212, 0.8); }
+  .glow-red    { text-shadow: 0 0 12px rgba(255, 0, 60, 0.8); }
+  .glow-green  { text-shadow: 0 0 12px rgba(16, 185, 129, 0.8); }
+  .glow-orange { text-shadow: 0 0 12px rgba(249, 115, 22, 0.8); }
+
+  /* Event type badge */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium tracking-wider;
+  }
+
+  .badge-red    { @apply badge bg-red-500/15    text-red-400    border border-red-500/25; }
+  .badge-cyan   { @apply badge bg-cyan-500/15   text-cyan-400   border border-cyan-500/25; }
+  .badge-orange { @apply badge bg-orange-500/15 text-orange-400 border border-orange-500/25; }
+  .badge-yellow { @apply badge bg-yellow-500/15 text-yellow-400 border border-yellow-500/25; }
+  .badge-gray   { @apply badge bg-gray-500/15   text-gray-400   border border-gray-500/25; }
+}
+
+/* ─── Scan Line Overlay (decorative) ────────────────── */
+.scan-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  background: linear-gradient(
+    transparent 50%,
+    rgba(6, 182, 212, 0.012) 50%
+  );
+  background-size: 100% 4px;
+  animation: none;
+}
+
+/* ─── React Globe GL overrides ───────────────────────── */
+.globe-container canvas {
+  border-radius: 0.75rem;
+}

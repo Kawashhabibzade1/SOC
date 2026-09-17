@@ -1,0 +1,76 @@
+# ─────────────────────────────────────────────
+# SOC Radar - Phase 2 Gateway
+# docker-compose.yml
+#
+# IMPORTANT — Before running:
+# 1. Find the name of your existing Nextcloud/MariaDB Docker network:
+#      docker inspect nextcloud-db --format '{{json .NetworkSettings.Networks}}'
+#    Copy the network name and set it as MARIADB_NETWORK below (default: nextcloud_default).
+#
+# 2. Ensure MariaDB port 3306 is NOT publicly exposed on the host.
+#    The gateway reaches it via the shared Docker network, not via the host.
+#
+# 3. Run:
+#      docker compose up -d --build
+# ─────────────────────────────────────────────
+
+services:
+
+  soc-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: soc-gateway
+    restart: unless-stopped
+    ports:
+      # Expose the gateway on the host so the Phase 1 collector and browser can reach it
+      - "3001:3001"
+    env_file:
+      - .env
+    networks:
+      # 1. Join the existing MariaDB network so we can reach 'nextcloud-db' by hostname
+      - mariadb-net
+      # 2. Internal SOC network (for future services like the Next.js frontend in Docker)
+      - soc-internal
+    depends_on:
+      nextcloud-db:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Reference to the EXISTING MariaDB container ──────────────────────────
+  # We declare it here only so 'depends_on' and the healthcheck work.
+  # Docker Compose will NOT recreate it (external: true on the network prevents conflicts).
+  nextcloud-db:
+    image: mariadb:10.11          # matches your running container
+    container_name: nextcloud-db  # must match the actual running container name
+    external_links:
+      - nextcloud-db
+    networks:
+      - mariadb-net
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+# ─────────────────────────────────────────────
+# NETWORKS
+# ─────────────────────────────────────────────
+networks:
+
+  # The network your existing nextcloud-db container is already attached to.
+  # Run: docker inspect nextcloud-db --format '{{json .NetworkSettings.Networks}}'
+  # Replace 'nextcloud_default' with the actual network name if different.
+  mariadb-net:
+    external: true
+    name: nextcloud_default       # ← CHANGE THIS if your network name differs
+
+  # Isolated internal network for SOC services
+  soc-internal:
+    driver: bridge
+    name: soc-internal
