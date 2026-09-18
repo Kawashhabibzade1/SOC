@@ -31,7 +31,7 @@ const { verifySync } = require('otplib');
 const config = {
   port           : parseInt(process.env.PORT           || '3001', 10),
   frontendOrigin : process.env.FRONTEND_ORIGIN         || 'http://localhost:3000',
-  internalApiKey : process.env.INTERNAL_API_KEY        || 'changeme-use-a-real-secret',
+  internalApiKey : process.env.INTERNAL_API_KEY        || process.env.GATEWAY_SECRET || 'changeme-use-a-real-secret',
   db: {
     host               : process.env.DB_HOST            || '127.0.0.1',
     port               : parseInt(process.env.DB_PORT   || '3306', 10),
@@ -80,25 +80,34 @@ async function createPool(retries = 10, delayMs = 2000) {
 const app    = express();
 const server = http.createServer(app);
 
-// Security headers (disable CSP directives that block Socket.io in dev)
-app.use(helmet({ contentSecurityPolicy: false }));
+// Security headers (allow cross-origin API and socket requests)
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 // JSON body parsing
 app.use(express.json({ limit: '16kb' }));
 
-// CORS — only allow the frontend origin for public routes
+// CORS — allow frontend origins (localhost, Vercel, and Tailscale)
 const corsOptions = {
-  origin : config.frontendOrigin,
-  methods: ['GET', 'OPTIONS'],
+  origin: true, // Allow request origin
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-internal-key'],
 };
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // ─────────────────────────────────────────────
 // 4. SOCKET.IO SERVER
 // ─────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
-    origin : config.frontendOrigin,
+    origin : true,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
   // Prefer WebSocket, fall back to polling
   transports: ['websocket', 'polling'],
