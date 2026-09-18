@@ -23,7 +23,8 @@ const { Server} = require('socket.io');
 const cors      = require('cors');
 const helmet    = require('helmet');
 const mysql     = require('mysql2/promise');
-const { verifySync } = require('otplib');
+const { verifySync, generateURI } = require('otplib');
+const qrcode    = require('qrcode');
 
 // ─────────────────────────────────────────────
 // 1. CONFIGURATION
@@ -209,6 +210,34 @@ app.get('/api/events/stats', cors(corsOptions), async (req, res) => {
   } catch (err) {
     console.error('[REST] /api/events/stats error:', err.message);
     res.status(500).json({ success: false, error: 'Database query failed.' });
+  }
+});
+
+/**
+ * GET /api/auth/qr
+ * Returns a high-res Data URL QR code and the active secret for easy scanning.
+ */
+app.get('/api/auth/qr', async (req, res) => {
+  try {
+    const secret = config.auth.totpSecret || 'W7J6DLYATM3KEOSUTZAYBRQNL4VFIX5T';
+    const uri = generateURI({ secret, label: 'admin', issuer: 'SOC Radar' });
+    const qrDataUrl = await qrcode.toDataURL(uri, {
+      margin: 2,
+      width: 280,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    });
+    res.json({
+      success: true,
+      secret,
+      qrDataUrl,
+      uri
+    });
+  } catch (err) {
+    console.error('[REST] /api/auth/qr error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
