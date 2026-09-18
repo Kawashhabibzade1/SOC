@@ -44,6 +44,7 @@ const config = {
     queueLimit         : 0,
     enableKeepAlive    : true,
     keepAliveInitialDelay: 10000,
+    timezone           : 'Z',
   },
   auth: {
     username: process.env.ADMIN_USERNAME || 'admin',

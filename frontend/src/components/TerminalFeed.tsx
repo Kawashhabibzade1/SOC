@@ -27,6 +27,19 @@ function formatLine(event: SecurityEvent): string {
   return parts.join(' ');
 }
 
+function parseUtcDate(timestamp?: string | null): Date {
+  if (!timestamp) return new Date();
+  let clean = String(timestamp).trim();
+  if (clean.includes(' ') && !clean.includes('T')) {
+    clean = clean.replace(' ', 'T');
+  }
+  if (!clean.endsWith('Z') && !/[+-]\d{2}(?::?\d{2})?$/.test(clean)) {
+    clean += 'Z';
+  }
+  const d = new Date(clean);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
 // ─────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────
@@ -80,9 +93,8 @@ export default function TerminalFeed({ events }: Props) {
         {/* Reversed so newest is at bottom */}
         {[...display].reverse().map((event, idx) => {
           const style = TYPE_STYLE[event.event_type] ?? TYPE_STYLE.UNKNOWN;
-          const parsed = event.timestamp ? new Date(event.timestamp) : new Date();
-          const validDate = isNaN(parsed.getTime()) ? new Date() : parsed;
-          const ts    = format(validDate, 'HH:mm:ss.SSS');
+          const validDate = parseUtcDate(event.timestamp);
+          const ts        = format(validDate, 'HH:mm:ss.SSS');
 
           return (
             <div

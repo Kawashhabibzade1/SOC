@@ -30,6 +30,7 @@ const config = {
     queueLimit           : 0,
     enableKeepAlive      : true,
     keepAliveInitialDelay: 10000,
+    timezone             : 'Z',
   },
   logSource: process.env.LOG_SOURCE || 'journalctl',
 
@@ -136,6 +137,7 @@ async function notifyGateway(event) {
         city         : event.city          || null,
         latitude     : event.latitude      || null,
         longitude    : event.longitude     || null,
+        timestamp    : new Date().toISOString(),
       }),
       // Short timeout — don't let a slow gateway stall the collector
       signal: AbortSignal.timeout(3000),
