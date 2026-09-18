@@ -10,17 +10,33 @@ export default function LoginV5() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     
-    // Simulate API login request
-    setTimeout(() => {
+    try {
+      const res = await fetch(`${GATEWAY_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        router.push('/verify');
+      } else {
+        setError(data.error || 'Invalid credentials');
+      }
+    } catch (err) {
+      setError('Network error. Is the Gateway running?');
+    } finally {
       setLoading(false);
-      // Navigate to the OTP authenticator page after successful login
-      router.push('/verify');
-    }, 1500);
+    }
   };
 
   return (
@@ -91,6 +107,12 @@ export default function LoginV5() {
             >
               {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Login'}
             </button>
+            
+            {error && (
+              <p className="text-red-500 text-sm text-center mt-4 bg-red-500/10 py-2 rounded-lg border border-red-500/20">
+                {error}
+              </p>
+            )}
           </form>
         </div>
       </div>

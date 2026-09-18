@@ -23,6 +23,7 @@ const { Server} = require('socket.io');
 const cors      = require('cors');
 const helmet    = require('helmet');
 const mysql     = require('mysql2/promise');
+const { authenticator } = require('otplib');
 
 // ─────────────────────────────────────────────
 // 1. CONFIGURATION
@@ -43,6 +44,11 @@ const config = {
     enableKeepAlive    : true,
     keepAliveInitialDelay: 10000,
   },
+  auth: {
+    username: process.env.ADMIN_USERNAME || 'admin',
+    password: process.env.ADMIN_PASSWORD || 'soc-radar-2026',
+    totpSecret: process.env.TOTP_SECRET || '',
+  }
 };
 
 // ─────────────────────────────────────────────
@@ -195,6 +201,51 @@ app.get('/api/events/stats', cors(corsOptions), async (req, res) => {
   } catch (err) {
     console.error('[REST] /api/events/stats error:', err.message);
     res.status(500).json({ success: false, error: 'Database query failed.' });
+  }
+});
+
+/**
+ * POST /api/auth/login
+ * Verifies username and password against the hardcoded .env variables.
+ */
+app.post('/api/auth/login', cors(corsOptions), (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ success: false, error: 'Username and password required.' });
+  }
+  
+  if (username === config.auth.username && password === config.auth.password) {
+    return res.json({ success: true, message: 'Credentials valid. Proceed to 2FA.' });
+  } else {
+    return res.status(401).json({ success: false, error: 'Invalid credentials.' });
+  }
+});
+
+/**
+ * POST /api/auth/verify
+ * Verifies the 6-digit TOTP code against the secret key.
+ */
+app.post('/api/auth/verify', cors(corsOptions), (req, res) => {
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Token required.' });
+  }
+
+  if (!config.auth.totpSecret) {
+    // If setup wasn't run, reject safely
+    return res.status(500).json({ success: false, error: 'TOTP secret not configured on server.' });
+  }
+
+  try {
+    const isValid = authenticator.check(token, config.auth.totpSecret);
+    if (isValid) {
+      return res.json({ success: true, message: 'Authentication successful.' });
+    } else {
+      return res.status(401).json({ success: false, error: 'Invalid 2FA code.' });
+    }
+  } catch (err) {
+    console.error('[REST] /api/auth/verify error:', err.message);
+    return res.status(500).json({ success: false, error: 'Error validating token.' });
   }
 });
 
