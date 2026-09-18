@@ -100,33 +100,101 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
       return new THREE.Vector3(x, y, z);
     };
 
+    const HQ_LAT = 50.1109;
+    const HQ_LON = 8.6821;
+    const hqPos  = getCoordinates(HQ_LAT, HQ_LON, globeRadius);
+
+    // Dynamic pulse rings array to animate in render loop
+    const pulsingRings: { mesh: THREE.Mesh; baseScale: number; speed: number }[] = [];
+
     const createMarkers = () => {
       // Clear old markers
-      while(markersGroup.children.length > 0){ 
-          const child = markersGroup.children[0];
-          markersGroup.remove(child); 
+      while (markersGroup.children.length > 0) {
+        const child = markersGroup.children[0];
+        markersGroup.remove(child);
       }
+      pulsingRings.length = 0;
 
-      events.forEach(event => {
-        if (!event.latitude || !event.longitude) return;
-        
-        const pos = getCoordinates(event.latitude, event.longitude, globeRadius);
-        
-        let color = 0x6b7280; 
+      // 1. Plot SOC Gateway HQ Base (Cyan beacon with pulsing wave)
+      const hqDotGeo = new THREE.SphereGeometry(3.5, 16, 16);
+      const hqDotMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4 });
+      const hqDot = new THREE.Mesh(hqDotGeo, hqDotMat);
+      hqDot.position.copy(hqPos);
+      markersGroup.add(hqDot);
+
+      // HQ Vertical Beacon Spike
+      const hqNormal = hqPos.clone().normalize();
+      const hqSpikeEnd = hqPos.clone().add(hqNormal.clone().multiplyScalar(18));
+      const hqSpikeGeo = new THREE.BufferGeometry().setFromPoints([hqPos, hqSpikeEnd]);
+      const hqSpikeMat = new THREE.LineBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.9 });
+      markersGroup.add(new THREE.Line(hqSpikeGeo, hqSpikeMat));
+
+      // HQ Pulse Ring
+      const hqRingGeo = new THREE.RingGeometry(2, 4, 32);
+      const hqRingMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+      const hqRing = new THREE.Mesh(hqRingGeo, hqRingMat);
+      hqRing.position.copy(hqPos.clone().add(hqNormal.clone().multiplyScalar(0.5)));
+      hqRing.lookAt(hqPos.clone().add(hqNormal));
+      markersGroup.add(hqRing);
+      pulsingRings.push({ mesh: hqRing, baseScale: 1, speed: 0.03 });
+
+      // 2. Plot Events
+      events.forEach((event, idx) => {
+        let lat = Number(event.latitude);
+        let lon = Number(event.longitude);
+
+        // Fallback for internal / private IPs: cluster near HQ with slight jitter
+        if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) {
+          const angle = ((event.id || idx) * 137.5) * (Math.PI / 180);
+          const dist  = 1.5 + ((event.id || idx) % 5) * 0.8;
+          lat = HQ_LAT + Math.sin(angle) * dist;
+          lon = HQ_LON + Math.cos(angle) * dist;
+        }
+
+        const pos = getCoordinates(lat, lon, globeRadius);
+        const normal = pos.clone().normalize();
+
+        let color = 0x64748b;
         if (event.event_type === 'SSH_FAILED') color = 0xff003c;
         if (event.event_type === 'SSH_SUCCESS') color = 0x06b6d4;
         if (event.event_type === 'FAIL2BAN_BLOCK') color = 0xf97316;
         if (event.event_type === 'FAIL2BAN_UNBLOCK') color = 0xeab308;
 
-        const dotGeometry = new THREE.SphereGeometry(1.5, 8, 8);
-        const dotMaterial = new THREE.MeshBasicMaterial({ color });
-        const dot = new THREE.Mesh(dotGeometry, dotMaterial);
-        
+        // Core dot
+        const dotGeo = new THREE.SphereGeometry(2.5, 12, 12);
+        const dotMat = new THREE.MeshBasicMaterial({ color });
+        const dot = new THREE.Mesh(dotGeo, dotMat);
         dot.position.copy(pos);
         markersGroup.add(dot);
+
+        // Vertical laser beacon
+        const spikeHeight = event.event_type === 'SSH_FAILED' ? 14 : 9;
+        const spikeEnd = pos.clone().add(normal.clone().multiplyScalar(spikeHeight));
+        const spikeGeo = new THREE.BufferGeometry().setFromPoints([pos, spikeEnd]);
+        const spikeMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.8 });
+        markersGroup.add(new THREE.Line(spikeGeo, spikeMat));
+
+        // 3. Draw 3D curved parabolic attack arc to HQ
+        const distance = pos.distanceTo(hqPos);
+        if (distance > 15) { // Only draw trajectory arcs if not right on top of HQ
+          const midPoint = new THREE.Vector3().addVectors(pos, hqPos).multiplyScalar(0.5);
+          const arcAltitude = globeRadius + Math.min(distance * 0.4, 50);
+          midPoint.setLength(arcAltitude);
+
+          const curve = new THREE.QuadraticBezierCurve3(pos, midPoint, hqPos);
+          const points = curve.getPoints(40);
+          const arcGeo = new THREE.BufferGeometry().setFromPoints(points);
+          const arcMat = new THREE.LineBasicMaterial({
+            color,
+            transparent: true,
+            opacity: event.event_type === 'SSH_FAILED' ? 0.65 : 0.4,
+          });
+          const arcLine = new THREE.Line(arcGeo, arcMat);
+          markersGroup.add(arcLine);
+        }
       });
     };
-    
+
     createMarkers();
 
 
@@ -137,6 +205,17 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
       globe.rotation.y += rotationSpeed;
+
+      // Animate pulsing radar waves
+      pulsingRings.forEach(r => {
+        r.baseScale += r.speed;
+        if (r.baseScale > 3.0) {
+          r.baseScale = 1.0;
+        }
+        r.mesh.scale.set(r.baseScale, r.baseScale, 1);
+        (r.mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.8 - (r.baseScale - 1) / 2.5);
+      });
+
       renderer.render(scene, camera);
     };
     animate();
@@ -231,14 +310,18 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
     <div className="relative w-full h-full min-h-[300px] flex items-center justify-center bg-transparent">
       <div ref={mountRef} className="absolute inset-0 cursor-move" />
       
-      <div className="absolute top-4 left-4 flex flex-col gap-1 pointer-events-none">
+      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-col gap-1.5 pointer-events-none bg-black/40 backdrop-blur-md px-3 py-2 rounded-xl border border-cyan-500/20">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+          <span className="font-mono text-[10px] text-cyan-400 font-bold tracking-widest uppercase">SOC HQ: ACTIVE</span>
+        </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse glow-red" />
-          <span className="font-mono text-[10px] text-red-500 tracking-widest uppercase">Attacks</span>
+          <span className="font-mono text-[10px] text-red-400 tracking-widest uppercase">Threat Arcs: {events.filter(e => e.event_type === 'SSH_FAILED' || e.event_type === 'FAIL2BAN_BLOCK').length}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-cyan-500 glow-cyan" />
-          <span className="font-mono text-[10px] text-cyan-500 tracking-widest uppercase">Success</span>
+          <span className="font-mono text-[10px] text-slate-400 tracking-widest uppercase">Verified: {events.filter(e => e.event_type === 'SSH_SUCCESS').length}</span>
         </div>
       </div>
     </div>
