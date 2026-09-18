@@ -86,11 +86,9 @@ export default function DashboardPage() {
 
       {/* ── Main Dashboard Layout ───────────────────────────── */}
       <main
-        className="flex flex-col gap-3 p-3"
+        className="flex flex-col gap-3 p-2 sm:p-3 min-h-screen lg:h-screen lg:overflow-hidden overflow-y-auto"
         style={{
-          height    : '100vh',
           paddingTop: 'calc(64px + 0.75rem)', // clear navbar height
-          overflow  : 'hidden',
         }}
       >
 
@@ -98,25 +96,24 @@ export default function DashboardPage() {
         <MetricsRow stats={stats} />
 
         {/* ─ Row 2: Globe + Terminal ──────── */}
-        <div className="flex gap-3 flex-1 min-h-0">
+        <div className="flex flex-col lg:flex-row gap-3 flex-1 min-h-0">
 
-          {/* Globe — takes 65% of width */}
+          {/* Globe — takes 65% on desktop, dedicated height on mobile */}
           <div
-            className="glass-panel rounded-xl overflow-hidden"
-            style={{ flex: '0 0 65%', minHeight: 0 }}
+            className="glass-panel rounded-xl overflow-hidden h-[340px] sm:h-[420px] lg:h-auto lg:flex-[0_0_65%] min-h-0"
           >
             <GlobeRadar events={events} latestEvent={latestEvent} />
           </div>
 
-          {/* Terminal feed — takes remaining 35% */}
-          <div style={{ flex: '1 1 0', minHeight: 0, minWidth: 0 }}>
+          {/* Terminal feed — takes remaining 35% on desktop, dedicated height on mobile */}
+          <div className="h-[280px] lg:h-auto lg:flex-1 min-h-0 min-w-0">
             <TerminalFeed events={events} />
           </div>
 
         </div>
 
         {/* ─ Row 3: Alert table ───────────── */}
-        <div style={{ flex: '0 0 280px', minHeight: 0 }}>
+        <div className="h-[320px] lg:h-auto lg:flex-[0_0_280px] min-h-0">
           <AlertTable events={events} />
         </div>
 

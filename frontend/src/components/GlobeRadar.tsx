@@ -170,11 +170,39 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
       previousMousePosition = { x: e.offsetX, y: e.offsetY };
     };
 
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        const touch = e.touches[0];
+        const rect = dom.getBoundingClientRect();
+        previousMousePosition = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+      }
+    };
+    const onTouchEnd = () => { isDragging = false; };
+    const onTouchMove = (e: TouchEvent) => {
+      if (isDragging && e.touches.length === 1) {
+        const touch = e.touches[0];
+        const rect = dom.getBoundingClientRect();
+        const curX = touch.clientX - rect.left;
+        const curY = touch.clientY - rect.top;
+        const deltaMove = {
+          x: curX - previousMousePosition.x,
+          y: curY - previousMousePosition.y
+        };
+        globe.rotation.y += deltaMove.x * 0.005;
+        globe.rotation.x += deltaMove.y * 0.005;
+        previousMousePosition = { x: curX, y: curY };
+      }
+    };
+
     const dom = renderer.domElement;
     dom.addEventListener('mousedown', onMouseDown);
     dom.addEventListener('mousemove', onMouseMove);
     dom.addEventListener('mouseup', onMouseUp);
     dom.addEventListener('mouseleave', onMouseUp);
+    dom.addEventListener('touchstart', onTouchStart, { passive: true });
+    dom.addEventListener('touchmove', onTouchMove, { passive: true });
+    dom.addEventListener('touchend', onTouchEnd);
 
     // --- Cleanup ---
     return () => {
@@ -183,6 +211,9 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
       dom.removeEventListener('mousemove', onMouseMove);
       dom.removeEventListener('mouseup', onMouseUp);
       dom.removeEventListener('mouseleave', onMouseUp);
+      dom.removeEventListener('touchstart', onTouchStart);
+      dom.removeEventListener('touchmove', onTouchMove);
+      dom.removeEventListener('touchend', onTouchEnd);
       cancelAnimationFrame(animationFrameId);
       
       if (mountNode && dom) {

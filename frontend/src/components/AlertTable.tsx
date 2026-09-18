@@ -97,8 +97,8 @@ export default function AlertTable({ events }: Props) {
       </div>
 
       {/* ── Table ──────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        <table className="w-full border-collapse text-xs">
+      <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0">
+        <table className="w-full border-collapse text-xs min-w-[560px]">
           <thead className="sticky top-0 z-10" style={{ background: 'rgba(2,8,23,0.95)' }}>
             <tr>
               {['Time', 'Event', 'IP Address', 'User', 'Country', 'City'].map(col => (

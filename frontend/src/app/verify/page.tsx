@@ -89,21 +89,21 @@ export default function OtpVerificationV7() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black font-sans p-4">
-      <div className="w-full max-w-[400px] min-h-[480px] bg-[#121212] rounded-[2.5rem] p-8 relative flex flex-col shadow-2xl border border-zinc-800/50">
+    <div className="min-h-screen flex items-center justify-center bg-black font-sans p-3 sm:p-4">
+      <div className="w-full max-w-[400px] min-h-[460px] bg-[#121212] rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 relative flex flex-col shadow-2xl border border-zinc-800/50">
         
-        <div className="w-12 h-1 bg-zinc-800 rounded-full mx-auto mb-10" />
+        <div className="w-12 h-1 bg-zinc-800 rounded-full mx-auto mb-8 sm:mb-10" />
 
         {!isVerified ? (
           <div className="flex flex-col items-center flex-1 animate-in fade-in zoom-in duration-300">
-            <h2 className="text-[1.35rem] font-semibold text-white mb-3 text-center tracking-wide">
+            <h2 className="text-[1.25rem] sm:text-[1.35rem] font-semibold text-white mb-2 sm:mb-3 text-center tracking-wide">
               Microsoft Authenticator
             </h2>
-            <p className="text-zinc-500 text-sm text-center mb-10 px-2 leading-relaxed">
+            <p className="text-zinc-500 text-xs sm:text-sm text-center mb-8 sm:mb-10 px-2 leading-relaxed">
               Enter the 6-digit code from your Authenticator app.
             </p>
 
-            <div className="flex gap-2 w-full justify-center mt-2">
+            <div className="flex gap-1.5 sm:gap-2 w-full justify-center mt-2">
               {otp.map((digit, index) => (
                 <input
                   key={index}
@@ -115,7 +115,7 @@ export default function OtpVerificationV7() {
                   disabled={loading}
                   onChange={(e) => handleChange(e, index)}
                   onKeyDown={(e) => handleKeyDown(e, index)}
-                  className="w-[3rem] h-[3.5rem] bg-[#1a1a1a] rounded-xl text-center text-xl font-medium text-white outline-none focus:bg-[#222] transition-colors
+                  className="w-10 sm:w-12 h-12 sm:h-14 bg-[#1a1a1a] rounded-xl text-center text-lg sm:text-xl font-medium text-white outline-none focus:bg-[#222] transition-colors
                              border-b border-l border-b-zinc-800/80 border-l-zinc-800/80
                              border-t border-r border-t-red-500/40 border-r-red-500/40 
                              shadow-[4px_-4px_15px_rgba(239,68,68,0.1)] disabled:opacity-50"

@@ -145,7 +145,7 @@ export default function MetricsRow({ stats }: MetricsRowProps) {
   ];
 
   return (
-    <div className="grid grid-cols-4 gap-3 flex-shrink-0">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 flex-shrink-0">
       {rings.map(ring => (
         <MetricsRing key={ring.label} {...ring} />
       ))}
