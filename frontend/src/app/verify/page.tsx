@@ -53,6 +53,7 @@ export default function OtpVerificationV7() {
       
       if (data.success) {
         setIsVerified(true);
+        localStorage.setItem('soc_auth', 'true');
         setTimeout(() => {
           router.push('/');
         }, 1500);

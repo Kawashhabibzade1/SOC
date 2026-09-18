@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Shield, Wifi, WifiOff, Activity } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Shield, Wifi, WifiOff, Activity, LogOut } from 'lucide-react';
 
 interface NavbarProps {
   isConnected : boolean;
@@ -9,6 +10,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
+  const router = useRouter();
   const [time, setTime] = useState('');
 
   useEffect(() => {
@@ -108,6 +110,22 @@ export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
         >
           {time}
         </div>
+
+        {/* Logout Button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('soc_auth');
+            }
+            router.push('/login');
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 font-mono text-xs tracking-wider transition-all cursor-pointer"
+          title="Sign Out"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>LOGOUT</span>
+        </button>
       </div>
     </header>
   );

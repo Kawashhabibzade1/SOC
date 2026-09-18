@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useSocData } from '@/hooks/useSocData';
 import Navbar         from '@/components/Navbar';
@@ -30,7 +32,35 @@ const GlobeRadar = dynamic(() => import('@/components/GlobeRadar'), {
 // Dashboard Page
 // ─────────────────────────────────────────────
 export default function DashboardPage() {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const { events, isConnected, latestEvent, stats } = useSocData();
+
+  useEffect(() => {
+    const auth = typeof window !== 'undefined' ? localStorage.getItem('soc_auth') : null;
+    if (!auth) {
+      router.replace('/login');
+    } else {
+      setIsAuthenticated(true);
+    }
+  }, [router]);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#020817] gap-4">
+        <div
+          className="w-16 h-16 rounded-full border-2 animate-spin"
+          style={{
+            borderColor: 'rgba(6,182,212,0.2)',
+            borderTopColor: '#06b6d4',
+          }}
+        />
+        <p className="font-mono text-xs text-cyber-cyan tracking-[0.3em] animate-pulse uppercase">
+          Verifying Security Clearance...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <>
