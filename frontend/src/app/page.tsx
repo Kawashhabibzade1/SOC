@@ -86,7 +86,7 @@ export default function DashboardPage() {
 
       {/* ── Main Dashboard Layout ───────────────────────────── */}
       <main
-        className="flex flex-col gap-3 p-2 sm:p-3 min-h-screen lg:h-screen lg:overflow-hidden overflow-y-auto"
+        className="flex flex-col gap-3 p-2 sm:p-4 min-h-screen pb-12 overflow-y-auto"
         style={{
           paddingTop: 'calc(64px + 0.75rem)', // clear navbar height
         }}
@@ -96,24 +96,24 @@ export default function DashboardPage() {
         <MetricsRow stats={stats} />
 
         {/* ─ Row 2: Globe + Terminal ──────── */}
-        <div className="flex flex-col lg:flex-row gap-3 flex-1 min-h-0">
+        <div className="flex flex-col lg:flex-row gap-3">
 
-          {/* Globe — takes 65% on desktop, dedicated height on mobile */}
+          {/* Globe — responsive heights */}
           <div
-            className="glass-panel rounded-xl overflow-hidden h-[340px] sm:h-[420px] lg:h-auto lg:flex-[0_0_65%] min-h-0"
+            className="glass-panel rounded-xl overflow-hidden h-[360px] sm:h-[460px] lg:h-[520px] lg:flex-[0_0_60%]"
           >
             <GlobeRadar events={events} latestEvent={latestEvent} />
           </div>
 
-          {/* Terminal feed — takes remaining 35% on desktop, dedicated height on mobile */}
-          <div className="h-[280px] lg:h-auto lg:flex-1 min-h-0 min-w-0">
+          {/* Terminal feed */}
+          <div className="h-[320px] lg:h-[520px] lg:flex-1 min-w-0">
             <TerminalFeed events={events} />
           </div>
 
         </div>
 
         {/* ─ Row 3: Alert table ───────────── */}
-        <div className="h-[320px] lg:h-auto lg:flex-[0_0_280px] min-h-0">
+        <div className="h-[360px] sm:h-[400px]">
           <AlertTable events={events} />
         </div>
 

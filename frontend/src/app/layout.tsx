@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${orbitron.variable} ${shareTechMono.variable} ${inter.variable}`}>
-      <body className="bg-cyber-bg antialiased overflow-hidden">
+      <body className="bg-cyber-bg antialiased overflow-x-hidden min-h-screen">
         {children}
       </body>
     </html>

@@ -24,16 +24,18 @@
   box-sizing: border-box;
 }
 
-html, body {
-  height: 100%;
-  overflow: hidden;
+html {
+  min-height: 100%;
 }
 
 body {
+  min-height: 100%;
   background-color: var(--cyber-bg);
   color: #ffffff;
   font-family: var(--font-inter);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* ─── Custom Scrollbar ───────────────────────────────── */
