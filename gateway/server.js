@@ -23,7 +23,7 @@ const { Server} = require('socket.io');
 const cors      = require('cors');
 const helmet    = require('helmet');
 const mysql     = require('mysql2/promise');
-const { authenticator } = require('otplib');
+const { verifySync } = require('otplib');
 
 // ─────────────────────────────────────────────
 // 1. CONFIGURATION
@@ -237,8 +237,12 @@ app.post('/api/auth/verify', cors(corsOptions), (req, res) => {
   }
 
   try {
-    const isValid = authenticator.check(token, config.auth.totpSecret);
-    if (isValid) {
+    const result = verifySync({
+      token,
+      secret: config.auth.totpSecret,
+      epochTolerance: 30,
+    });
+    if (result && result.valid) {
       return res.json({ success: true, message: 'Authentication successful.' });
     } else {
       return res.status(401).json({ success: false, error: 'Invalid 2FA code.' });
