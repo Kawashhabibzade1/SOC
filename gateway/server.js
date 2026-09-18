@@ -339,7 +339,8 @@ app.post('/internal/notify', requireInternalKey, (req, res) => {
   }
 
   // Stamp a server-side ISO timestamp for the frontend
-  const payload = { ...event, receivedAt: new Date().toISOString() };
+  const timestamp = event.timestamp || new Date().toISOString();
+  const payload = { ...event, timestamp, receivedAt: timestamp };
 
   // Broadcast to ALL connected browser clients simultaneously
   const clientCount = io.engine.clientsCount;

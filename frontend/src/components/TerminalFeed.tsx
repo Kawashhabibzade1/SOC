@@ -80,7 +80,9 @@ export default function TerminalFeed({ events }: Props) {
         {/* Reversed so newest is at bottom */}
         {[...display].reverse().map((event, idx) => {
           const style = TYPE_STYLE[event.event_type] ?? TYPE_STYLE.UNKNOWN;
-          const ts    = format(new Date(event.timestamp), 'HH:mm:ss.SSS');
+          const parsed = event.timestamp ? new Date(event.timestamp) : new Date();
+          const validDate = isNaN(parsed.getTime()) ? new Date() : parsed;
+          const ts    = format(validDate, 'HH:mm:ss.SSS');
 
           return (
             <div

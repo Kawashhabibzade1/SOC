@@ -132,7 +132,11 @@ export default function AlertTable({ events }: Props) {
               >
                 {/* Timestamp */}
                 <td className="px-4 py-2 font-mono text-slate-500 tabular-nums whitespace-nowrap">
-                  {formatDistanceToNowStrict(new Date(event.timestamp), { addSuffix: true })}
+                  {(() => {
+                    const parsed = event.timestamp ? new Date(event.timestamp) : new Date();
+                    const validDate = isNaN(parsed.getTime()) ? new Date() : parsed;
+                    return formatDistanceToNowStrict(validDate, { addSuffix: true });
+                  })()}
                 </td>
 
                 {/* Event badge */}

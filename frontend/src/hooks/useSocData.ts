@@ -101,8 +101,19 @@ export function useSocData(): SocDataState {
       setIsConnected(false);
     });
 
-    socket.on('new_event', (event: SecurityEvent) => {
-      pushEvent(event);
+    socket.on('new_event', (rawEvent: Partial<SecurityEvent> & { receivedAt?: string }) => {
+      const normalizedEvent: SecurityEvent = {
+        id           : rawEvent.id || Date.now(),
+        timestamp    : rawEvent.timestamp || rawEvent.receivedAt || new Date().toISOString(),
+        event_type   : (rawEvent.event_type as EventType) || 'UNKNOWN',
+        ip_address   : rawEvent.ip_address || '0.0.0.0',
+        targeted_user: rawEvent.targeted_user || null,
+        country      : rawEvent.country || null,
+        city         : rawEvent.city || null,
+        latitude     : rawEvent.latitude != null ? Number(rawEvent.latitude) : null,
+        longitude    : rawEvent.longitude != null ? Number(rawEvent.longitude) : null,
+      };
+      pushEvent(normalizedEvent);
     });
 
     return () => {
