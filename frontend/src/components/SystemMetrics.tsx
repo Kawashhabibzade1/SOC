@@ -85,7 +85,21 @@ export default function SystemMetrics() {
   if (!data) return null;
 
   const memPercent = (data.mem.active / data.mem.total) * 100;
-  const mainDisk = data.disk.find(d => d.mount === '/') || data.disk[0];
+  
+  // Filter out internal loopbacks, tmpfs, and system partitions to only show real drives
+  const realDisks = data.disk.filter(d => 
+    !d.fs.startsWith('/dev/loop') &&
+    !d.mount.startsWith('/sys') &&
+    !d.mount.startsWith('/proc') &&
+    !d.mount.startsWith('/run') &&
+    !d.mount.startsWith('/dev') &&
+    !d.mount.startsWith('/boot/efi') &&
+    d.type !== 'tmpfs' &&
+    d.type !== 'squashfs' &&
+    d.size > 0
+  );
+
+  const disksToShow = realDisks.length > 0 ? realDisks : [data.disk.find(d => d.mount === '/') || data.disk[0]];
 
   return (
     <div className="h-full min-h-0 flex flex-col gap-4 overflow-y-auto pb-8">
@@ -162,31 +176,33 @@ export default function SystemMetrics() {
           </div>
         </div>
 
-        {/* Disk Panel */}
-        {mainDisk && (
-          <div className="glass-panel rounded-xl p-6 relative overflow-hidden group">
+        {/* Disk Panels */}
+        {disksToShow.filter(Boolean).map((disk, idx) => (
+          <div key={`disk-${idx}`} className="glass-panel rounded-xl p-6 relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="flex items-start justify-between mb-8 relative z-10">
               <div className="flex items-center gap-3">
                 <HardDrive className="w-5 h-5 text-slate-400" />
-                <span className="font-orbitron tracking-widest text-sm text-slate-200">STORAGE ({mainDisk.mount})</span>
+                <span className="font-orbitron tracking-widest text-sm text-slate-200" title={disk.fs}>
+                  STORAGE ({disk.mount})
+                </span>
               </div>
-              <span className={`px-2 py-1 rounded font-mono text-xs font-bold ${getUsageColor(mainDisk.use)}`}>
-                {mainDisk.use.toFixed(1)}%
+              <span className={`px-2 py-1 rounded font-mono text-xs font-bold ${getUsageColor(disk.use)}`}>
+                {disk.use.toFixed(1)}%
               </span>
             </div>
             <div className="relative h-4 bg-slate-800/50 rounded-full overflow-hidden border border-slate-700/50 z-10 mb-3">
               <div 
-                className={`absolute top-0 left-0 h-full transition-all duration-1000 ease-out ${getProgressColor(mainDisk.use)}`}
-                style={{ width: `${mainDisk.use}%` }}
+                className={`absolute top-0 left-0 h-full transition-all duration-1000 ease-out ${getProgressColor(disk.use)}`}
+                style={{ width: `${disk.use}%` }}
               />
             </div>
             <div className="flex justify-between font-mono text-[10px] text-slate-400 uppercase z-10 relative">
-              <span>{formatBytes(mainDisk.used)} Used</span>
-              <span>{formatBytes(mainDisk.size)} Total</span>
+              <span>{formatBytes(disk.used)} Used</span>
+              <span>{formatBytes(disk.size)} Total</span>
             </div>
           </div>
-        )}
+        ))}
 
       </div>
     </div>
