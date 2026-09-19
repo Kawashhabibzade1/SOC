@@ -179,10 +179,19 @@ const PATTERNS = [
     extract    : (m) => ({ ip_address: m[1], targeted_user: null }),
   },
   // ── XRDP (/var/log/xrdp-sesman.log) ─────────────────────────────────────
-  // Format: sesman_auth: authfail - auth not valid for user root from ip 1.2.3.4
+  {
+    event_type : 'XRDP_SUCCESS',
+    regex      : /sesman_auth.*auth\s+valid.*user\s+(\S+)\s+from\s+ip\s+([\d.]+)/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  {
+    event_type : 'XRDP_SUCCESS',
+    regex      : /login successful for user (\S+) on display.*?([\d]{1,3}(?:\.[\d]{1,3}){3})/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
   {
     event_type : 'XRDP_FAILED',
-    regex      : /sesman_auth.*user\s+(\S+)\s+from\s+ip\s+([\d.]+)/i,
+    regex      : /sesman_auth.*auth(?:fail| not valid).*?user\s+(\S+)\s+from\s+ip\s+([\d.]+)/i,
     extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
   },
   // Fallback XRDP pattern (no username in log)
@@ -192,6 +201,11 @@ const PATTERNS = [
     extract    : (m) => ({ targeted_user: null, ip_address: m[1] }),
   },
   // ── FTP (vsftpd: /var/log/vsftpd.log) ────────────────────────────────────
+  {
+    event_type : 'FTP_SUCCESS',
+    regex      : /\[([^\]]+)\]\s+OK LOGIN:\s+Client\s+"([\d.]+)"/i,
+    extract    : (m) => ({ targeted_user: m[1] === 'anonymous' ? null : m[1], ip_address: m[2] }),
+  },
   // Format: [pid XXXX] [user] FAIL LOGIN: Client "1.2.3.4"
   {
     event_type : 'FTP_FAILED',
@@ -205,6 +219,11 @@ const PATTERNS = [
     extract    : (m) => ({ targeted_user: null, ip_address: m[1] }),
   },
   // ── SFTP (OpenSSH subsystem — auth.log/journalctl) ───────────────────────
+  {
+    event_type : 'SFTP_SUCCESS',
+    regex      : /Accepted (?:password|publickey) for (\S+) from ([\d.a-fA-F:]+) port.*sftp/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
   // SFTP logins appear in auth.log like SSH but with sftp subsystem
   {
     event_type : 'SFTP_FAILED',

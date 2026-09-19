@@ -25,6 +25,10 @@ const helmet    = require('helmet');
 const mysql     = require('mysql2/promise');
 const { verifySync, generateURI } = require('otplib');
 const qrcode    = require('qrcode');
+const { exec }  = require('child_process');
+const util      = require('util');
+const geoip     = require('geoip-lite');
+const execAsync = util.promisify(exec);
 
 // ─────────────────────────────────────────────
 // 1. CONFIGURATION
@@ -228,6 +232,66 @@ app.get('/api/events/stats', cors(corsOptions), async (req, res) => {
   } catch (err) {
     console.error('[REST] /api/events/stats error:', err.message);
     res.status(500).json({ success: false, error: 'Database query failed.' });
+  }
+});
+
+/**
+ * GET /api/active-sessions
+ * Returns real-time active TCP connections (SSH, FTP, XRDP) on the server.
+ */
+app.get('/api/active-sessions', cors(corsOptions), async (req, res) => {
+  try {
+    // Run 'ss' to get established TCP connections. 
+    // -t = TCP, -n = numeric (no DNS resolve)
+    const { stdout } = await execAsync('ss -tn state established');
+    const lines = stdout.split('\\n');
+    const activeSessions = [];
+
+    lines.forEach(line => {
+      // ss output usually: Recv-Q Send-Q Local_Address:Port Peer_Address:Port
+      const parts = line.trim().split(/\\s+/);
+      if (parts.length < 4) return;
+      
+      const local = parts[3];
+      const peer = parts[4];
+      if (!local || !peer || local === 'Local') return;
+
+      let localPort, peerIp;
+      
+      // Parse local port (handles IPv4 like 1.2.3.4:22 and IPv6 like [::1]:22)
+      const localMatch = local.match(/:(\\d+)$/);
+      if (localMatch) localPort = parseInt(localMatch[1], 10);
+      
+      // Parse peer IP
+      const peerMatch = peer.match(/^(\\[[a-fA-F0-9:]+\\]|[\\d\\.]+):/);
+      if (peerMatch) peerIp = peerMatch[1].replace(/\\[|\\]/g, '');
+
+      // Check if it's one of our monitored ports
+      let service = null;
+      if (localPort === 22) service = 'SSH / SFTP';
+      else if (localPort === 21) service = 'FTP';
+      else if (localPort === 3389) service = 'XRDP';
+      
+      if (service && peerIp) {
+        // Ignore internal localhost / docker connections (172.19.*, 127.0.0.1)
+        if (peerIp.startsWith('127.') || peerIp.startsWith('172.19.')) return;
+
+        const geo = geoip.lookup(peerIp);
+        activeSessions.push({
+          ip: peerIp,
+          service,
+          country: geo ? geo.country : null,
+          city: geo ? geo.city : null,
+          latitude: geo && geo.ll ? geo.ll[0] : null,
+          longitude: geo && geo.ll ? geo.ll[1] : null,
+        });
+      }
+    });
+
+    res.json({ success: true, count: activeSessions.length, data: activeSessions });
+  } catch (err) {
+    console.error('[REST] /api/active-sessions error:', err.message);
+    res.status(500).json({ success: false, error: 'Failed to retrieve active sessions.' });
   }
 });
 

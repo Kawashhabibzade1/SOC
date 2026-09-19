@@ -14,10 +14,13 @@ export type EventType =
   | 'XRDP_FAILED'
   | 'FTP_FAILED'
   | 'SFTP_FAILED'
+  | 'XRDP_SUCCESS'
+  | 'FTP_SUCCESS'
+  | 'SFTP_SUCCESS'
   | 'UNKNOWN';
 
 export interface SecurityEvent {
-  id           : number;
+  id?          : number;
   timestamp    : string;
   event_type   : EventType;
   ip_address   : string;
@@ -26,6 +29,15 @@ export interface SecurityEvent {
   city         : string | null;
   latitude     : number | null;
   longitude    : number | null;
+}
+
+export interface ActiveSession {
+  ip: string;
+  service: string;
+  country: string | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface SocStats {
@@ -37,10 +49,11 @@ export interface SocStats {
 }
 
 export interface SocDataState {
-  events      : SecurityEvent[];
-  isConnected : boolean;
-  latestEvent : SecurityEvent | null;
-  stats       : SocStats;
+  events         : SecurityEvent[];
+  activeSessions : ActiveSession[];
+  isConnected    : boolean;
+  latestEvent    : SecurityEvent | null;
+  stats          : SocStats;
 }
 
 // ─────────────────────────────────────────────
@@ -55,6 +68,7 @@ const FETCH_LIMIT  = 100; // Historical events to load on startup
 // ─────────────────────────────────────────────
 export function useSocData(): SocDataState {
   const [events,      setEvents]      = useState<SecurityEvent[]>([]);
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [latestEvent, setLatestEvent] = useState<SecurityEvent | null>(null);
   const [stats,       setStats]       = useState<SocStats>({
@@ -91,6 +105,22 @@ export function useSocData(): SocDataState {
         }
       })
       .catch(err => console.error('[useSocData] History fetch failed:', err.message));
+
+    // Initial fetch of active sessions
+    const fetchActiveSessions = () => {
+      fetch(`${GATEWAY_URL}/api/active-sessions`)
+        .then(res => res.json())
+        .then(body => {
+          if (body.success && Array.isArray(body.data)) {
+            setActiveSessions(body.data);
+          }
+        })
+        .catch(err => console.error('[useSocData] Active sessions fetch failed:', err.message));
+    };
+    fetchActiveSessions();
+
+    // Poll active sessions every 10 seconds
+    const sessionInterval = setInterval(fetchActiveSessions, 10000);
 
     // ── 2. Establish Socket.io connection ─────────────────
     const socket = io(GATEWAY_URL, {
@@ -135,7 +165,7 @@ export function useSocData(): SocDataState {
       setStats(prev => {
         const isFailed = ['SSH_FAILED', 'XRDP_FAILED', 'FTP_FAILED', 'SFTP_FAILED'].includes(normalizedEvent.event_type);
         const isBlock = normalizedEvent.event_type === 'FAIL2BAN_BLOCK';
-        const isSuccess = normalizedEvent.event_type === 'SSH_SUCCESS';
+        const isSuccess = ['SSH_SUCCESS', 'XRDP_SUCCESS', 'FTP_SUCCESS', 'SFTP_SUCCESS'].includes(normalizedEvent.event_type);
         // Unique countries will be roughly estimated on the fly for new events, 
         // to avoid recalculating the entire set if it's large.
         const isNewCountry = normalizedEvent.country && !events.some(e => e.country === normalizedEvent.country) ? 1 : 0;
@@ -151,10 +181,11 @@ export function useSocData(): SocDataState {
     });
 
     return () => {
+      clearInterval(sessionInterval);
       socket.disconnect();
       socketRef.current = null;
     };
   }, [pushEvent]);
 
-  return { events, isConnected, latestEvent, stats };
+  return { events, activeSessions, isConnected, latestEvent, stats };
 }

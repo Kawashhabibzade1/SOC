@@ -15,6 +15,9 @@ const TYPE_STYLE: Record<EventType, { tag: string; color: string; dim: string }>
   XRDP_FAILED      : { tag: 'XRDP ', color: '#d946ef', dim: '#7a1f8a' },
   FTP_FAILED       : { tag: 'FTP  ', color: '#ec4899', dim: '#8b1a54' },
   SFTP_FAILED      : { tag: 'SFTP ', color: '#14b8a6', dim: '#0d6e67' },
+  XRDP_SUCCESS     : { tag: 'XRDP+', color: '#d946ef', dim: '#06b6d4' },
+  FTP_SUCCESS      : { tag: 'FTP+ ', color: '#ec4899', dim: '#06b6d4' },
+  SFTP_SUCCESS     : { tag: 'SFTP+', color: '#14b8a6', dim: '#06b6d4' },
   UNKNOWN          : { tag: '?????', color: '#6b7280', dim: '#374151' },
 };
 

@@ -8,6 +8,7 @@ import Navbar         from '@/components/Navbar';
 import MetricsRow     from '@/components/MetricsRow';
 import TerminalFeed   from '@/components/TerminalFeed';
 import AlertTable     from '@/components/AlertTable';
+import ActiveSessions from '@/components/ActiveSessions';
 
 // ── Dynamic import — react-globe.gl is NOT SSR-compatible ──────────────────
 const GlobeRadar = dynamic(() => import('@/components/GlobeRadar'), {
@@ -34,7 +35,7 @@ const GlobeRadar = dynamic(() => import('@/components/GlobeRadar'), {
 export default function DashboardPage() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const { events, isConnected, latestEvent, stats } = useSocData();
+  const { events, activeSessions, isConnected, latestEvent, stats } = useSocData();
 
   useEffect(() => {
     const auth = typeof window !== 'undefined' ? localStorage.getItem('soc_auth') : null;
@@ -112,9 +113,14 @@ export default function DashboardPage() {
 
         </div>
 
-        {/* ─ Row 3: Alert table ───────────── */}
-        <div className="h-[360px] sm:h-[400px]">
-          <AlertTable events={events} />
+        {/* ─ Row 3: Alert table & Active Sessions ───────────── */}
+        <div className="flex flex-col lg:flex-row gap-3 h-[360px] sm:h-[400px]">
+          <div className="lg:w-2/3 h-full">
+            <AlertTable events={events} />
+          </div>
+          <div className="lg:w-1/3 h-full">
+            <ActiveSessions sessions={activeSessions} />
+          </div>
         </div>
 
       </main>

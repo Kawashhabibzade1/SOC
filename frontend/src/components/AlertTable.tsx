@@ -30,6 +30,9 @@ function EventBadge({ type }: BadgeProps) {
     XRDP_FAILED      : 'badge-fuchsia',
     FTP_FAILED       : 'badge-pink',
     SFTP_FAILED      : 'badge-teal',
+    XRDP_SUCCESS     : 'badge-fuchsia',
+    FTP_SUCCESS      : 'badge-pink',
+    SFTP_SUCCESS     : 'badge-teal',
     UNKNOWN          : 'badge-gray',
   };
   return <span className={map[type] ?? 'badge-gray'}>{type.replace('_', ' ')}</span>;
@@ -46,6 +49,9 @@ function getRowStyle(type: EventType, isFirst: boolean): RowGlowStyle {
     case 'XRDP_FAILED'     : return { background: 'rgba(217,70,239,0.06)',  borderLeft: '2px solid rgba(217,70,239,0.5)' };
     case 'FTP_FAILED'      : return { background: 'rgba(236,72,153,0.06)',  borderLeft: '2px solid rgba(236,72,153,0.5)' };
     case 'SFTP_FAILED'     : return { background: 'rgba(20,184,166,0.06)',  borderLeft: '2px solid rgba(20,184,166,0.5)' };
+    case 'XRDP_SUCCESS'    : return { background: 'rgba(217,70,239,0.06)',  borderLeft: '2px solid rgba(6,182,212,0.5)' };
+    case 'FTP_SUCCESS'     : return { background: 'rgba(236,72,153,0.06)',  borderLeft: '2px solid rgba(6,182,212,0.5)' };
+    case 'SFTP_SUCCESS'    : return { background: 'rgba(20,184,166,0.06)',  borderLeft: '2px solid rgba(6,182,212,0.5)' };
     default: return {};
   }
 }
