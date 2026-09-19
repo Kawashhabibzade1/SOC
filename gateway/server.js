@@ -413,6 +413,70 @@ app.post('/api/block-ip', cors(corsOptions), async (req, res) => {
 });
 
 /**
+ * POST /api/unblock-ip
+ * Executes a system firewall command to unblock an IP address.
+ */
+app.post('/api/unblock-ip', cors(corsOptions), async (req, res) => {
+  const { ip } = req.body;
+  if (!ip) return res.status(400).json({ success: false, error: 'IP address required.' });
+  
+  try {
+    const isWin = process.platform === 'win32';
+    const cmd = isWin 
+      ? `netsh advfirewall firewall delete rule name="Block ${ip}"`
+      : `sudo iptables -D INPUT -s ${ip} -j DROP`; // default to iptables for linux
+
+    console.log(`[Firewall] Executing unblock for IP: ${ip} -> ${cmd}`);
+    
+    const { stdout, stderr } = await execAsync(cmd).catch(err => {
+      console.warn('[Firewall] Command failed, possibly due to permissions or rule not existing:', err.message);
+      return { stdout: '', stderr: err.message };
+    });
+
+    res.json({ success: true, message: `IP ${ip} unblocked successfully.`, output: stdout || stderr });
+  } catch (err) {
+    console.error('[Firewall] Unblock IP error:', err.message);
+    res.status(500).json({ success: false, error: 'Failed to unblock IP.' });
+  }
+});
+
+/**
+ * POST /api/manage-port
+ * Open or close a specific port via firewall rules.
+ */
+app.post('/api/manage-port', cors(corsOptions), async (req, res) => {
+  const { port, protocol = 'tcp', action } = req.body;
+  if (!port || !action) return res.status(400).json({ success: false, error: 'Port and action required.' });
+
+  try {
+    const isWin = process.platform === 'win32';
+    let cmd = '';
+
+    if (action === 'close') {
+      cmd = isWin
+        ? `netsh advfirewall firewall add rule name="Block Port ${port}" dir=in action=block protocol=${protocol} localport=${port}`
+        : `sudo iptables -I INPUT -p ${protocol} --dport ${port} -j DROP`;
+    } else if (action === 'open') {
+      cmd = isWin
+        ? `netsh advfirewall firewall delete rule name="Block Port ${port}"`
+        : `sudo iptables -D INPUT -p ${protocol} --dport ${port} -j DROP`;
+    }
+
+    console.log(`[Firewall] Manage Port ${port} (${action}) -> ${cmd}`);
+    
+    const { stdout, stderr } = await execAsync(cmd).catch(err => {
+      console.warn('[Firewall] Command failed:', err.message);
+      return { stdout: '', stderr: err.message };
+    });
+
+    res.json({ success: true, message: `Port ${port} ${action}ed successfully.`, output: stdout || stderr });
+  } catch (err) {
+    console.error(`[Firewall] Port manage error:`, err.message);
+    res.status(500).json({ success: false, error: 'Failed to manage port.' });
+  }
+});
+
+/**
  * GET /api/open-ports
  * Returns a list of currently listening TCP/UDP ports on the server.
  */

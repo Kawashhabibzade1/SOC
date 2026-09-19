@@ -79,6 +79,7 @@ const MAX_ROWS = 50;
 export default function AlertTable({ events }: Props) {
   const [activeFilter, setActiveFilter] = useState<FilterKey>('ALL');
   const [blockingIp, setBlockingIp] = useState<string | null>(null);
+  const [unblockingIp, setUnblockingIp] = useState<string | null>(null);
 
   const handleBlockIp = async (ip: string) => {
     if (!confirm(`Are you sure you want to block IP ${ip}?`)) return;
@@ -100,6 +101,29 @@ export default function AlertTable({ events }: Props) {
       alert(`Error blocking IP: ${err.message}`);
     } finally {
       setBlockingIp(null);
+    }
+  };
+
+  const handleUnblockIp = async (ip: string) => {
+    if (!confirm(`Are you sure you want to unblock IP ${ip}?`)) return;
+    setUnblockingIp(ip);
+    try {
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
+      const res = await fetch(`${GATEWAY_URL}/api/unblock-ip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Unblocked ${ip} successfully.`);
+      } else {
+        alert(`Failed to unblock ${ip}: ${data.error}`);
+      }
+    } catch (err: any) {
+      alert(`Error unblocking IP: ${err.message}`);
+    } finally {
+      setUnblockingIp(null);
     }
   };
 
@@ -217,16 +241,27 @@ export default function AlertTable({ events }: Props) {
 
                 {/* Actions */}
                 <td className="px-4 py-2 whitespace-nowrap">
-                  <button
-                    onClick={() => handleBlockIp(event.ip_address)}
-                    disabled={blockingIp === event.ip_address}
-                    className="flex items-center gap-1 px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded border border-red-500/30 transition-colors disabled:opacity-50"
-                  >
-                    <ShieldAlert className="w-3 h-3" />
-                    <span className="font-mono text-[9px] uppercase">
-                      {blockingIp === event.ip_address ? 'Blocking...' : 'Block'}
-                    </span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleBlockIp(event.ip_address)}
+                      disabled={blockingIp === event.ip_address}
+                      className="flex items-center gap-1 px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded border border-red-500/30 transition-colors disabled:opacity-50"
+                    >
+                      <ShieldAlert className="w-3 h-3" />
+                      <span className="font-mono text-[9px] uppercase">
+                        {blockingIp === event.ip_address ? 'Wait...' : 'Block'}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => handleUnblockIp(event.ip_address)}
+                      disabled={unblockingIp === event.ip_address}
+                      className="flex items-center gap-1 px-2 py-1 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 rounded border border-yellow-500/30 transition-colors disabled:opacity-50"
+                    >
+                      <span className="font-mono text-[9px] uppercase">
+                        {unblockingIp === event.ip_address ? 'Wait...' : 'Unblock'}
+                      </span>
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

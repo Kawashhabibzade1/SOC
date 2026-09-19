@@ -59,6 +59,26 @@ export default function OtpVerificationV7() {
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').trim().replace(/\D/g, '');
+    if (pastedData.length > 0) {
+      const newOtp = [...otp];
+      for (let i = 0; i < 6; i++) {
+        if (pastedData[i]) {
+          newOtp[i] = pastedData[i];
+        }
+      }
+      setOtp(newOtp);
+      const focusIndex = Math.min(pastedData.length, 5);
+      inputRefs.current[focusIndex]?.focus();
+      
+      if (pastedData.length >= 6) {
+        verifyCode(pastedData.substring(0, 6));
+      }
+    }
+  };
+
   const verifyCode = async (token: string) => {
     setLoading(true);
     setError('');
@@ -120,6 +140,7 @@ export default function OtpVerificationV7() {
                     disabled={loading}
                     onChange={(e) => handleChange(e, index)}
                     onKeyDown={(e) => handleKeyDown(e, index)}
+                    onPaste={handlePaste}
                     className="relative z-10 w-10 sm:w-12 h-12 sm:h-14 bg-[#1a1a1a] rounded-xl text-center text-lg sm:text-xl font-medium text-white outline-none focus:bg-[#222] transition-colors
                                disabled:opacity-50"
                   />
