@@ -119,8 +119,8 @@ export function useSocData(): SocDataState {
     };
     fetchActiveSessions();
 
-    // Poll active sessions every 10 seconds
-    const sessionInterval = setInterval(fetchActiveSessions, 10000);
+    // Poll active sessions every 3 seconds
+    const sessionInterval = setInterval(fetchActiveSessions, 3000);
 
     // ── 2. Establish Socket.io connection ─────────────────
     const socket = io(GATEWAY_URL, {

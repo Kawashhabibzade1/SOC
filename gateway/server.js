@@ -244,27 +244,27 @@ app.get('/api/active-sessions', cors(corsOptions), async (req, res) => {
     // Run 'ss' to get established TCP connections. 
     // -t = TCP, -n = numeric (no DNS resolve)
     const { stdout } = await execAsync('ss -tn state established');
-    const lines = stdout.split('\\n');
+    const lines = stdout.split('\n');
     const activeSessions = [];
 
     lines.forEach(line => {
       // ss output usually: Recv-Q Send-Q Local_Address:Port Peer_Address:Port
-      const parts = line.trim().split(/\\s+/);
+      const parts = line.trim().split(/\s+/);
       if (parts.length < 4) return;
       
-      const local = parts[3];
-      const peer = parts[4];
+      const local = parts[2];
+      const peer = parts[3];
       if (!local || !peer || local === 'Local') return;
 
       let localPort, peerIp;
       
       // Parse local port (handles IPv4 like 1.2.3.4:22 and IPv6 like [::1]:22)
-      const localMatch = local.match(/:(\\d+)$/);
+      const localMatch = local.match(/:(\d+)$/);
       if (localMatch) localPort = parseInt(localMatch[1], 10);
       
       // Parse peer IP
-      const peerMatch = peer.match(/^(\\[[a-fA-F0-9:]+\\]|[\\d\\.]+):/);
-      if (peerMatch) peerIp = peerMatch[1].replace(/\\[|\\]/g, '');
+      const peerMatch = peer.match(/^(\[[a-fA-F0-9:]+\]|[\d\.]+):/);
+      if (peerMatch) peerIp = peerMatch[1].replace(/\[|\]/g, '');
 
       // Check if it's one of our monitored ports
       let service = null;
@@ -276,15 +276,19 @@ app.get('/api/active-sessions', cors(corsOptions), async (req, res) => {
         // Ignore internal localhost / docker connections (172.19.*, 127.0.0.1)
         if (peerIp.startsWith('127.') || peerIp.startsWith('172.19.')) return;
 
-        const geo = geoip.lookup(peerIp);
-        activeSessions.push({
-          ip: peerIp,
-          service,
-          country: geo ? geo.country : null,
-          city: geo ? geo.city : null,
-          latitude: geo && geo.ll ? geo.ll[0] : null,
-          longitude: geo && geo.ll ? geo.ll[1] : null,
-        });
+        // Deduplicate: avoid multiple SSH connections from the same IP showing as duplicates
+        const exists = activeSessions.find(s => s.ip === peerIp && s.service === service);
+        if (!exists) {
+          const geo = geoip.lookup(peerIp);
+          activeSessions.push({
+            ip: peerIp,
+            service,
+            country: geo ? geo.country : null,
+            city: geo ? geo.city : null,
+            latitude: geo && geo.ll ? geo.ll[0] : null,
+            longitude: geo && geo.ll ? geo.ll[1] : null,
+          });
+        }
       }
     });
 
