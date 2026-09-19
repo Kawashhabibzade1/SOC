@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { 
   Folder, File as FileIcon, FileText, Image as ImageIcon, 
   Trash2, Download, Upload, FolderPlus, ArrowLeft, RefreshCw, 
-  Terminal, Music, Video, Archive, HardDrive
+  Terminal, Music, Video, Archive, HardDrive, Lock, KeyRound, X as CloseIcon
 } from 'lucide-react';
 
 interface FileExplorerProps {
@@ -27,6 +27,12 @@ export default function FileExplorer({ initialPath }: FileExplorerProps) {
   // Samba state
   const [sambaUsers, setSambaUsers] = useState<string[]>([]);
   const [sambaShares, setSambaShares] = useState<any[]>([]);
+
+  // Auth State
+  const [authModalUser, setAuthModalUser] = useState<string | null>(null);
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Modals / Prompts
   const [isUploading, setIsUploading] = useState(false);
@@ -216,8 +222,88 @@ export default function FileExplorer({ initialPath }: FileExplorerProps) {
     }
   };
 
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAuthenticating(true);
+    setAuthError('');
+    try {
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
+      const res = await fetch(`${GATEWAY_URL}/api/samba/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: authModalUser, password: authPassword })
+      });
+      const json = await res.json();
+      if (json.success) {
+        navigateTo(`SAMBA:${authModalUser}`);
+        setAuthModalUser(null);
+        setAuthPassword('');
+      } else {
+        setAuthError(json.error || 'Invalid password');
+      }
+    } catch (err) {
+      setAuthError('Network error');
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="h-full flex flex-col gap-4 relative">
+      {/* Auth Modal */}
+      {authModalUser && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md rounded-xl">
+          <div className="bg-slate-900 border border-slate-700 p-8 rounded-2xl shadow-2xl max-w-sm w-full relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500"></div>
+            
+            <button 
+              onClick={() => { setAuthModalUser(null); setAuthError(''); setAuthPassword(''); }}
+              className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              <CloseIcon className="w-5 h-5" />
+            </button>
+            
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-4 border border-blue-500/20">
+                <Lock className="w-8 h-8 text-blue-400" />
+              </div>
+              <h3 className="text-xl font-orbitron font-bold text-slate-200">AUTHENTICATE</h3>
+              <p className="text-sm text-slate-400 font-mono mt-1">User: <span className="text-cyan-400 font-bold">{authModalUser}</span></p>
+            </div>
+            
+            <form onSubmit={handleAuth} className="flex flex-col gap-4">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <KeyRound className="w-4 h-4 text-slate-500" />
+                </div>
+                <input 
+                  type="password" 
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="Samba Password" 
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-mono placeholder:text-slate-600"
+                  autoFocus
+                />
+              </div>
+              
+              {authError && (
+                <div className="text-red-400 text-xs font-mono bg-red-950/50 border border-red-900/50 p-2 rounded text-center animate-shake">
+                  {authError}
+                </div>
+              )}
+              
+              <button 
+                type="submit" 
+                disabled={isAuthenticating || !authPassword}
+                className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-bold py-3 rounded-xl transition-all mt-2"
+              >
+                {isAuthenticating ? 'VERIFYING...' : 'UNLOCK'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="glass-panel p-4 rounded-xl flex items-center justify-between gap-4 overflow-x-auto shrink-0">
         <div className="flex items-center gap-2">
@@ -277,7 +363,7 @@ export default function FileExplorer({ initialPath }: FileExplorerProps) {
                   {sambaUsers.map(user => (
                     <button 
                       key={user}
-                      onClick={() => navigateTo(`SAMBA:${user}`)}
+                      onClick={() => setAuthModalUser(user)}
                       className="px-6 py-4 bg-slate-800/80 hover:bg-cyber-cyan/20 border border-slate-700 hover:border-cyber-cyan/50 rounded-xl flex flex-col items-center gap-3 transition-all min-w-[150px]"
                     >
                       <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400 border border-blue-500/30">

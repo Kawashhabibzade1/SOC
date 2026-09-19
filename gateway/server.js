@@ -25,7 +25,7 @@ const helmet    = require('helmet');
 const mysql     = require('mysql2/promise');
 const { verifySync, generateURI } = require('otplib');
 const qrcode    = require('qrcode');
-const { exec }  = require('child_process');
+const { exec, spawn }  = require('child_process');
 const util      = require('util');
 const geoip     = require('geoip-lite');
 const si        = require('systeminformation');
@@ -682,6 +682,33 @@ app.get('/api/samba/shares', cors(corsOptions), async (req, res) => {
     console.error('[Samba] Parse error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+/**
+ * POST /api/samba/auth
+ * Authenticates a Samba user via smbclient
+ */
+app.post('/api/samba/auth', cors(corsOptions), (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ success: false, error: 'Username and password required' });
+  }
+
+  // Use spawn to prevent shell injection. smbclient -L 127.0.0.1 -U username%password
+  const smb = spawn('smbclient', ['-L', '127.0.0.1', '-U', `${username}%${password}`]);
+  
+  let output = '';
+  
+  smb.stdout.on('data', data => output += data.toString());
+  smb.stderr.on('data', data => output += data.toString());
+  
+  smb.on('close', code => {
+    if (code === 0 && !output.includes('NT_STATUS_LOGON_FAILURE')) {
+      res.json({ success: true });
+    } else {
+      res.status(401).json({ success: false, error: 'Invalid password' });
+    }
+  });
 });
 
 // ─────────────────────────────────────────────
