@@ -12,6 +12,7 @@ import ActiveSessions from '@/components/ActiveSessions';
 
 import Sidebar from '@/components/Sidebar';
 import OpenPortsTable from '@/components/OpenPortsTable';
+import BlockedIpsTable from '@/components/BlockedIpsTable';
 
 // ── Dynamic import — react-globe.gl is NOT SSR-compatible ──────────────────
 const GlobeRadar = dynamic(() => import('@/components/GlobeRadar'), {
@@ -97,6 +98,12 @@ export default function DashboardPage() {
         return (
           <div className="h-full w-full min-h-[500px]">
             <OpenPortsTable />
+          </div>
+        );
+      case 'blocked_ips':
+        return (
+          <div className="h-full w-full min-h-[500px]">
+            <BlockedIpsTable />
           </div>
         );
       default:

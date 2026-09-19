@@ -477,6 +477,49 @@ app.post('/api/manage-port', cors(corsOptions), async (req, res) => {
 });
 
 /**
+ * GET /api/blocked-ips
+ * Returns a list of currently blocked IP addresses.
+ */
+app.get('/api/blocked-ips', cors(corsOptions), async (req, res) => {
+  try {
+    const isWin = process.platform === 'win32';
+    const cmd = isWin 
+      ? 'netsh advfirewall firewall show rule name=all | findstr /i "Block"'
+      : 'sudo iptables -S INPUT'; // Cannot pipe easily in exec without shell, but execAsync runs in shell anyway
+
+    const { stdout } = await execAsync(cmd).catch(err => {
+      // It's normal for iptables to return empty or error if no privileges, we just return empty
+      return { stdout: '' };
+    });
+    
+    const ips = new Set();
+    const lines = stdout.split('\n');
+
+    if (isWin) {
+      // Basic Windows parse (would need exact rule name match)
+      lines.forEach(line => {
+        const match = line.match(/Block\s+([0-9.]+)/i);
+        if (match) ips.add(match[1]);
+      });
+    } else {
+      // Linux iptables -S parsing
+      // e.g. -A INPUT -s 192.168.1.100/32 -j DROP
+      lines.forEach(line => {
+        if (line.includes('DROP')) {
+          const match = line.match(/-s\s+([0-9a-fA-F.:]+)(?:\/\d+)?\s+/);
+          if (match) ips.add(match[1]);
+        }
+      });
+    }
+
+    res.json({ success: true, data: Array.from(ips) });
+  } catch (err) {
+    console.error('[Firewall] Get blocked IPs error:', err.message);
+    res.status(500).json({ success: false, error: 'Failed to retrieve blocked IPs.' });
+  }
+});
+
+/**
  * GET /api/open-ports
  * Returns a list of currently listening TCP/UDP ports on the server.
  */

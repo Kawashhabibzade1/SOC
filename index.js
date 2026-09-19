@@ -236,6 +236,25 @@ const PATTERNS = [
     regex      : /mod_sftp.*(?:failed|denied|error).*?([\d]{1,3}(?:\.[\d]{1,3}){3})/i,
     extract    : (m) => ({ targeted_user: null, ip_address: m[1] }),
   },
+  // ── SMB / Samba (/var/log/samba/log.smbd) ──────────────────────────────
+  {
+    event_type : 'SMB_SUCCESS',
+    // Example: Auth: [SMB2,(null)] user []\[kawash] at ... status [NT_STATUS_OK] ... remote host [ipv4:100.119.82.94:58223]
+    regex      : /Auth: \[.*?\] user \[.*?\]\\\[(.*?)\] .*? status \[NT_STATUS_OK\] .*? remote host \[ipv4:([0-9.]+):.*\]/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  {
+    event_type : 'SMB_FAILED',
+    // Catch access denied or bad passwords
+    regex      : /Auth: \[.*?\] user \[.*?\]\\\[(.*?)\] .*? status \[NT_STATUS_(?!OK).*?\] .*? remote host \[ipv4:([0-9.]+):.*\]/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  {
+    event_type : 'SMB_FAILED',
+    // Fallback for NT_STATUS_ACCESS_DENIED without Auth line
+    regex      : /create_connection_session_info: user '([^']+)' .*? denied/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: null }), // We might not have IP on this specific line, but it's a fallback
+  },
 ];
 
 function parseLine(line) {
@@ -364,6 +383,7 @@ function startCollector() {
   startFileWatcher('/var/log/xrdp-sesman.log', 'XRDP');
   startFileWatcher('/var/log/vsftpd.log',      'FTP');
   startFileWatcher('/var/log/proftpd/proftpd.log', 'ProFTPD');
+  startFileWatcher('/var/log/samba/log.smbd',  'SMB');
 }
 
 // ─────────────────────────────────────────────

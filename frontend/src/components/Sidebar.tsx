@@ -13,6 +13,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: 
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'radar', label: 'Globe Radar', icon: Globe2 },
     { id: 'ports', label: 'Open Ports', icon: Network },
+    { id: 'blocked_ips', label: 'Blocked IPs', icon: Shield },
   ];
 
   return (
