@@ -29,7 +29,14 @@ const { exec }  = require('child_process');
 const util      = require('util');
 const geoip     = require('geoip-lite');
 const si        = require('systeminformation');
+const fs        = require('fs-extra');
+const path      = require('path');
+const multer    = require('multer');
+
 const execAsync = util.promisify(exec);
+
+// Setup multer for uploading files to a temporary location before moving
+const upload = multer({ dest: '/tmp/soc_uploads/' });
 
 // ─────────────────────────────────────────────
 // 1. CONFIGURATION
@@ -622,8 +629,129 @@ app.get('/api/open-ports', cors(corsOptions), async (req, res) => {
 
     res.json({ success: true, data: uniquePorts });
   } catch (err) {
-    console.error('[REST] /api/open-ports error:', err.message);
+    console.error('[Firewall] Error listing open ports:', err.message);
     res.status(500).json({ success: false, error: 'Failed to retrieve open ports.' });
+  }
+});
+
+// ─────────────────────────────────────────────
+// FILE EXPLORER ENDPOINTS
+// ─────────────────────────────────────────────
+
+/**
+ * GET /api/fs/list
+ * Query: ?path=/mnt/data
+ */
+app.get('/api/fs/list', cors(corsOptions), async (req, res) => {
+  try {
+    const targetPath = req.query.path || '/';
+    const items = await fs.readdir(targetPath, { withFileTypes: true });
+    
+    const results = await Promise.all(items.map(async (item) => {
+      const fullPath = path.join(targetPath, item.name);
+      try {
+        const stats = await fs.stat(fullPath);
+        return {
+          name: item.name,
+          path: fullPath,
+          isDirectory: item.isDirectory(),
+          size: stats.size,
+          mtime: stats.mtime
+        };
+      } catch (err) {
+        // Handle broken symlinks or permission denied silently
+        return {
+          name: item.name,
+          path: fullPath,
+          isDirectory: item.isDirectory(),
+          size: 0,
+          mtime: null,
+          error: true
+        };
+      }
+    }));
+    
+    // Sort directories first, then alphabetical
+    results.sort((a, b) => {
+      if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
+      return a.isDirectory ? -1 : 1;
+    });
+
+    res.json({ success: true, data: results });
+  } catch (err) {
+    console.error('[FS] List error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/fs/download
+ * Query: ?path=/mnt/data/file.txt
+ */
+app.get('/api/fs/download', cors(corsOptions), (req, res) => {
+  const targetPath = req.query.path;
+  if (!targetPath) return res.status(400).json({ success: false, error: 'Path required' });
+  res.download(targetPath, path.basename(targetPath), (err) => {
+    if (err) {
+      console.error('[FS] Download error:', err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, error: 'Download failed' });
+      }
+    }
+  });
+});
+
+/**
+ * POST /api/fs/upload
+ * multipart/form-data with 'file' field and 'targetPath' in body
+ */
+app.post('/api/fs/upload', cors(corsOptions), upload.single('file'), async (req, res) => {
+  try {
+    const { targetPath } = req.body;
+    const file = req.file;
+    if (!targetPath || !file) {
+      return res.status(400).json({ success: false, error: 'Missing path or file' });
+    }
+    const finalDest = path.join(targetPath, file.originalname);
+    await fs.move(file.path, finalDest, { overwrite: true });
+    res.json({ success: true, message: 'File uploaded' });
+  } catch (err) {
+    console.error('[FS] Upload error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/fs/action
+ * Body: { action: 'delete' | 'mkdir' | 'copy' | 'move', source: string, dest?: string }
+ */
+app.post('/api/fs/action', cors(corsOptions), express.json(), async (req, res) => {
+  try {
+    const { action, source, dest } = req.body;
+    
+    switch (action) {
+      case 'delete':
+        await fs.remove(source);
+        break;
+      case 'mkdir':
+        await fs.ensureDir(source);
+        break;
+      case 'copy':
+        if (!dest) throw new Error('Destination required for copy');
+        await fs.copy(source, dest);
+        break;
+      case 'move':
+        if (!dest) throw new Error('Destination required for move');
+        await fs.move(source, dest);
+        break;
+      default:
+        return res.status(400).json({ success: false, error: 'Invalid action' });
+    }
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(`[FS] Action ${req.body.action} error:`, err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
