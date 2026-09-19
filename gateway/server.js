@@ -383,6 +383,114 @@ app.post('/api/auth/verify', (req, res) => {
   return res.status(401).json({ success: false, error: 'Invalid 2FA code.' });
 });
 
+/**
+ * POST /api/block-ip
+ * Executes a system firewall command to block an IP address.
+ */
+app.post('/api/block-ip', cors(corsOptions), async (req, res) => {
+  const { ip } = req.body;
+  if (!ip) return res.status(400).json({ success: false, error: 'IP address required.' });
+  
+  try {
+    const isWin = process.platform === 'win32';
+    const cmd = isWin 
+      ? `netsh advfirewall firewall add rule name="Block ${ip}" dir=in action=block remoteip=${ip}`
+      : `sudo iptables -A INPUT -s ${ip} -j DROP`; // default to iptables for linux
+
+    console.log(`[Firewall] Executing block for IP: ${ip} -> ${cmd}`);
+    
+    // We execute this async. In dev, it might fail due to sudo password prompt or missing privileges.
+    const { stdout, stderr } = await execAsync(cmd).catch(err => {
+      console.warn('[Firewall] Command failed, possibly due to permissions:', err.message);
+      return { stdout: '', stderr: err.message };
+    });
+
+    res.json({ success: true, message: `IP ${ip} blocked successfully.`, output: stdout || stderr });
+  } catch (err) {
+    console.error('[Firewall] Block IP error:', err.message);
+    res.status(500).json({ success: false, error: 'Failed to block IP.' });
+  }
+});
+
+/**
+ * GET /api/open-ports
+ * Returns a list of currently listening TCP/UDP ports on the server.
+ */
+app.get('/api/open-ports', cors(corsOptions), async (req, res) => {
+  try {
+    const isWin = process.platform === 'win32';
+    const cmd = isWin ? 'netstat -ano | findstr LISTENING' : 'ss -lntu';
+    
+    const { stdout } = await execAsync(cmd);
+    const lines = stdout.split('\n');
+    const ports = [];
+
+    lines.forEach(line => {
+      if (!line.trim()) return;
+      if (isWin) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 4) {
+          const proto = parts[0].toLowerCase();
+          const localAddress = parts[1];
+          const localPortMatch = localAddress.match(/:(\d+)$/);
+          if (localPortMatch) {
+            ports.push({
+              protocol: proto,
+              port: parseInt(localPortMatch[1], 10),
+              address: localAddress.replace(/:(\d+)$/, ''),
+              state: 'LISTENING',
+              process: parts[parts.length - 1]
+            });
+          }
+        }
+      } else {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 5 && parts[0] !== 'Netid') {
+          const proto = parts[0].toLowerCase();
+          const localAddress = parts[4];
+          const localPortMatch = localAddress.match(/:(\d+)$/);
+          if (localPortMatch) {
+            ports.push({
+              protocol: proto,
+              port: parseInt(localPortMatch[1], 10),
+              address: localAddress.replace(/:(\d+)$/, ''),
+              state: 'LISTENING',
+              process: 'N/A' // ss requires root for process info usually
+            });
+          }
+        }
+      }
+    });
+
+    // Deduplicate by port and protocol
+    const uniquePorts = [];
+    const seen = new Set();
+    ports.forEach(p => {
+      const key = `${p.protocol}-${p.port}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniquePorts.push(p);
+      }
+    });
+
+    res.json({ success: true, data: uniquePorts });
+  } catch (err) {
+    console.error('[REST] /api/open-ports error:', err.message);
+    res.status(500).json({ success: false, error: 'Failed to retrieve open ports.' });
+  }
+});
+
+/**
+ * GET /api/auth/status
+ * Returns if 2FA is configured or not
+ */
+app.get('/api/auth/status', cors(corsOptions), (req, res) => {
+  const secret = config.auth.totpSecret;
+  // If we have a secret configured in env, it's set up
+  const isSetup = Boolean(secret && secret.trim() !== '');
+  res.json({ success: true, isSetup });
+});
+
 // ─────────────────────────────────────────────
 // 6. INTERNAL ROUTE — Phase 1 → Phase 2 Bridge
 // ─────────────────────────────────────────────

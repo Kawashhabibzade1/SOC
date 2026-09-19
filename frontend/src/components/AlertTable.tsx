@@ -2,7 +2,7 @@
 
 import { useState, useMemo }       from 'react';
 import { formatDistanceToNowStrict } from 'date-fns';
-import { Filter }                  from 'lucide-react';
+import { Filter, ShieldAlert }                  from 'lucide-react';
 import { SecurityEvent, EventType } from '@/hooks/useSocData';
 
 // ─────────────────────────────────────────────
@@ -78,6 +78,30 @@ const MAX_ROWS = 50;
 
 export default function AlertTable({ events }: Props) {
   const [activeFilter, setActiveFilter] = useState<FilterKey>('ALL');
+  const [blockingIp, setBlockingIp] = useState<string | null>(null);
+
+  const handleBlockIp = async (ip: string) => {
+    if (!confirm(`Are you sure you want to block IP ${ip}?`)) return;
+    setBlockingIp(ip);
+    try {
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
+      const res = await fetch(`${GATEWAY_URL}/api/block-ip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Blocked ${ip} successfully.`);
+      } else {
+        alert(`Failed to block ${ip}: ${data.error}`);
+      }
+    } catch (err: any) {
+      alert(`Error blocking IP: ${err.message}`);
+    } finally {
+      setBlockingIp(null);
+    }
+  };
 
   const filtered = useMemo(() => {
     const source = activeFilter === 'ALL'
@@ -129,7 +153,7 @@ export default function AlertTable({ events }: Props) {
         <table className="w-full border-collapse text-xs min-w-[560px]">
           <thead className="sticky top-0 z-10" style={{ background: 'rgba(2,8,23,0.95)' }}>
             <tr>
-              {['Time', 'Event', 'IP Address', 'User', 'Country', 'City'].map(col => (
+              {['Time', 'Event', 'IP Address', 'User', 'Country', 'City', 'Actions'].map(col => (
                 <th
                   key={col}
                   className="px-4 py-2.5 text-left font-mono text-[9px] tracking-[0.2em] text-slate-600 uppercase"
@@ -189,6 +213,20 @@ export default function AlertTable({ events }: Props) {
                 {/* City */}
                 <td className="px-4 py-2 text-slate-500 whitespace-nowrap">
                   {event.city ?? <span className="text-slate-700 font-mono">—</span>}
+                </td>
+
+                {/* Actions */}
+                <td className="px-4 py-2 whitespace-nowrap">
+                  <button
+                    onClick={() => handleBlockIp(event.ip_address)}
+                    disabled={blockingIp === event.ip_address}
+                    className="flex items-center gap-1 px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded border border-red-500/30 transition-colors disabled:opacity-50"
+                  >
+                    <ShieldAlert className="w-3 h-3" />
+                    <span className="font-mono text-[9px] uppercase">
+                      {blockingIp === event.ip_address ? 'Blocking...' : 'Block'}
+                    </span>
+                  </button>
                 </td>
               </tr>
             ))}

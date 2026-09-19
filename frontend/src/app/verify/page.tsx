@@ -105,21 +105,25 @@ export default function OtpVerificationV7() {
 
             <div className="flex gap-1.5 sm:gap-2 w-full justify-center mt-2">
               {otp.map((digit, index) => (
-                <input
-                  key={index}
-                  ref={(el) => { inputRefs.current[index] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  disabled={loading}
-                  onChange={(e) => handleChange(e, index)}
-                  onKeyDown={(e) => handleKeyDown(e, index)}
-                  className="w-10 sm:w-12 h-12 sm:h-14 bg-[#1a1a1a] rounded-xl text-center text-lg sm:text-xl font-medium text-white outline-none focus:bg-[#222] transition-colors
-                             border-b border-l border-b-zinc-800/80 border-l-zinc-800/80
-                             border-t border-r border-t-red-500/40 border-r-red-500/40 
-                             shadow-[4px_-4px_15px_rgba(239,68,68,0.1)] disabled:opacity-50"
-                />
+                <div key={index} className="relative p-[2px] rounded-xl overflow-hidden group">
+                  {/* Traveling border background */}
+                  <div className="absolute inset-[-100%] animate-[spin_2.5s_linear_infinite]" 
+                       style={{ background: `conic-gradient(from 0deg, transparent 0 280deg, ${digit ? '#22c55e' : '#ef4444'} 360deg)` }} 
+                  />
+                  
+                  <input
+                    ref={(el) => { inputRefs.current[index] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    disabled={loading}
+                    onChange={(e) => handleChange(e, index)}
+                    onKeyDown={(e) => handleKeyDown(e, index)}
+                    className="relative z-10 w-10 sm:w-12 h-12 sm:h-14 bg-[#1a1a1a] rounded-xl text-center text-lg sm:text-xl font-medium text-white outline-none focus:bg-[#222] transition-colors
+                               disabled:opacity-50"
+                  />
+                </div>
               ))}
             </div>
             
@@ -152,8 +156,22 @@ export default function OtpVerificationV7() {
               <div className="w-[3.75rem] h-[3.75rem] bg-[#1a1a1a] rounded-2xl flex items-center justify-center relative z-10
                               border-b border-l border-b-zinc-800/80 border-l-zinc-800/80
                               border-t border-r border-t-green-500/50 border-r-green-500/50 
-                              shadow-[4px_-4px_20px_rgba(34,197,94,0.15)]">
-                <Check className="w-6 h-6 text-white" strokeWidth={3} />
+                              shadow-[4px_-4px_20px_rgba(34,197,94,0.15)] relative overflow-hidden group">
+                <div className="absolute inset-[-100%] animate-[spin_2s_linear_infinite]" 
+                     style={{ background: 'conic-gradient(from 0deg, transparent 0 300deg, rgba(34,197,94,0.8) 360deg)' }} 
+                />
+                <div className="absolute inset-[2px] bg-[#1a1a1a] rounded-2xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6L9 17l-5-5" strokeDasharray="30" strokeDashoffset="30" className="animate-[dash_0.8s_ease-out_forwards_0.2s]" />
+                  </svg>
+                  <style>{`
+                    @keyframes dash {
+                      to {
+                        stroke-dashoffset: 0;
+                      }
+                    }
+                  `}</style>
+                </div>
               </div>
             </div>
 

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Wifi, WifiOff, Activity, LogOut } from 'lucide-react';
+import { Shield, Wifi, WifiOff, Activity, LogOut, Settings } from 'lucide-react';
 
 interface NavbarProps {
   isConnected : boolean;
@@ -12,13 +12,42 @@ interface NavbarProps {
 export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
   const router = useRouter();
   const [time, setTime] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [is2faSet, setIs2faSet] = useState<boolean | null>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const tick = () =>
       setTime(new Date().toLocaleTimeString('en-GB', { hour12: false }));
     tick();
     const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
+
+    const fetchStatus = async () => {
+      try {
+        const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
+        const res = await fetch(`${GATEWAY_URL}/api/auth/status`);
+        const data = await res.json();
+        if (data.success) {
+          setIs2faSet(data.isSetup);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    fetchStatus();
+
+    // click outside handler
+    const handleClickOutside = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   return (
@@ -100,6 +129,44 @@ export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
                 <span className="font-mono text-[10px] sm:text-xs font-medium tracking-widest glow-red">OFFLINE</span>
               </div>
             </>
+          )}
+        </div>
+
+        {/* Settings Dropdown */}
+        <div className="relative" ref={settingsRef}>
+          <button
+            type="button"
+            onClick={() => setShowSettings(!showSettings)}
+            className={`p-1.5 sm:p-2 rounded-lg transition-colors ${showSettings ? 'text-cyber-cyan bg-cyber-cyan/10' : 'text-slate-400 hover:text-cyber-cyan hover:bg-cyber-cyan/10'}`}
+            title="Settings"
+          >
+            <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+          
+          {showSettings && (
+            <div className="absolute right-0 mt-3 w-64 rounded-xl border border-slate-700/50 bg-[#020817]/95 backdrop-blur-2xl shadow-2xl overflow-hidden py-1 z-50">
+              <div className="px-4 py-3 border-b border-slate-700/50">
+                <span className="font-orbitron text-[10px] tracking-widest text-slate-300 uppercase">System Settings</span>
+              </div>
+              <div className="px-4 py-3 border-b border-slate-700/50">
+                <div className="flex justify-between items-center">
+                  <span className="font-mono text-[10px] text-slate-400 uppercase tracking-wider">2FA Auth</span>
+                  {is2faSet === true ? (
+                    <span className="font-mono text-[9px] text-cyber-green px-1.5 py-0.5 rounded bg-cyber-green/10 border border-cyber-green/20">ACTIVE</span>
+                  ) : is2faSet === false ? (
+                    <span className="font-mono text-[9px] text-cyber-red px-1.5 py-0.5 rounded bg-cyber-red/10 border border-cyber-red/20 uppercase tracking-widest animate-pulse">Please einrichten</span>
+                  ) : (
+                    <span className="font-mono text-[9px] text-slate-500">CHECKING...</span>
+                  )}
+                </div>
+              </div>
+              <button 
+                className="w-full text-left px-4 py-3 font-mono text-[10px] text-slate-300 hover:text-cyber-cyan hover:bg-white/5 transition-colors uppercase tracking-wider"
+                onClick={() => alert('Password change interface would open here.')}
+              >
+                Change Password
+              </button>
+            </div>
           )}
         </div>
 

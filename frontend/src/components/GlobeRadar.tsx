@@ -39,23 +39,31 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
     // --- Globe ---
     const globeRadius = 100;
     
-    // Core sphere (dark)
+    // Core sphere (dark with high-res texture)
+    const textureLoader = new THREE.TextureLoader();
+    const earthTexture = textureLoader.load('https://unpkg.com/three-globe/example/img/earth-dark.jpg');
+    const bumpMap = textureLoader.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
+
     const sphereGeometry = new THREE.SphereGeometry(globeRadius, 64, 64);
     const sphereMaterial = new THREE.MeshPhongMaterial({
-      color: 0x020817,
-      emissive: 0x051024,
+      map: earthTexture,
+      bumpMap: bumpMap,
+      bumpScale: 1.5,
+      color: 0xffffff,
+      emissive: 0x020817,
+      emissiveIntensity: 0.5,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.95,
     });
     const globe = new THREE.Mesh(sphereGeometry, sphereMaterial);
     scene.add(globe);
 
     // Wireframe overlay for cyber look
-    const wireframeGeometry = new THREE.WireframeGeometry(new THREE.SphereGeometry(globeRadius, 32, 32));
+    const wireframeGeometry = new THREE.WireframeGeometry(new THREE.SphereGeometry(globeRadius + 0.5, 32, 32));
     const wireframeMaterial = new THREE.LineBasicMaterial({
       color: 0x06b6d4,
       transparent: true,
-      opacity: 0.1,
+      opacity: 0.05,
     });
     const wireframe = new THREE.LineSegments(wireframeGeometry, wireframeMaterial);
     globe.add(wireframe);

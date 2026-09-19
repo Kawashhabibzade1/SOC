@@ -87,24 +87,32 @@ export function useSocData(): SocDataState {
 
   useEffect(() => {
     // ── 1. Fetch historical data ───────────────────────────
-    fetch(`${GATEWAY_URL}/api/events/recent?limit=${FETCH_LIMIT}`)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then(body => {
-        if (body.success && Array.isArray(body.data)) {
-          setEvents(body.data);
-          setStats({
-            totalEvents    : body.totalEvents ?? body.data.length,
-            failedLogins   : body.totalFailed ?? 0,
-            blocks         : body.totalBlocks ?? 0,
-            successLogins  : body.totalSuccess ?? 0,
-            uniqueCountries: body.totalCountries ?? 0,
-          });
-        }
-      })
-      .catch(err => console.error('[useSocData] History fetch failed:', err.message));
+    const fetchHistory = () => {
+      fetch(`${GATEWAY_URL}/api/events/recent?limit=${FETCH_LIMIT}`)
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then(body => {
+          if (body.success && Array.isArray(body.data)) {
+            setEvents(body.data);
+            setStats({
+              totalEvents    : body.totalEvents ?? body.data.length,
+              failedLogins   : body.totalFailed ?? 0,
+              blocks         : body.totalBlocks ?? 0,
+              successLogins  : body.totalSuccess ?? 0,
+              uniqueCountries: body.totalCountries ?? 0,
+            });
+            if (body.data.length > 0) {
+              setLatestEvent(body.data[0]);
+            }
+          }
+        })
+        .catch(err => console.error('[useSocData] History fetch failed:', err.message));
+    };
+
+    fetchHistory();
+    const historyInterval = setInterval(fetchHistory, 1000);
 
     // Initial fetch of active sessions
     const fetchActiveSessions = () => {
@@ -119,8 +127,8 @@ export function useSocData(): SocDataState {
     };
     fetchActiveSessions();
 
-    // Poll active sessions every 3 seconds
-    const sessionInterval = setInterval(fetchActiveSessions, 3000);
+    // Poll active sessions every 1 second
+    const sessionInterval = setInterval(fetchActiveSessions, 1000);
 
     // ── 2. Establish Socket.io connection ─────────────────
     const socket = io(GATEWAY_URL, {
@@ -181,6 +189,7 @@ export function useSocData(): SocDataState {
     });
 
     return () => {
+      clearInterval(historyInterval);
       clearInterval(sessionInterval);
       socket.disconnect();
       socketRef.current = null;

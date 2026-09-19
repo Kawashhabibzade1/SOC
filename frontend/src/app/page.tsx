@@ -10,6 +10,9 @@ import TerminalFeed   from '@/components/TerminalFeed';
 import AlertTable     from '@/components/AlertTable';
 import ActiveSessions from '@/components/ActiveSessions';
 
+import Sidebar from '@/components/Sidebar';
+import OpenPortsTable from '@/components/OpenPortsTable';
+
 // ── Dynamic import — react-globe.gl is NOT SSR-compatible ──────────────────
 const GlobeRadar = dynamic(() => import('@/components/GlobeRadar'), {
   ssr    : false,
@@ -36,6 +39,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const { events, activeSessions, isConnected, latestEvent, stats } = useSocData();
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const auth = typeof window !== 'undefined' ? localStorage.getItem('soc_auth') : null;
@@ -63,6 +68,42 @@ export default function DashboardPage() {
     );
   }
 
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return (
+          <div className="flex flex-col gap-3 h-full overflow-y-auto pb-12">
+            <MetricsRow stats={stats} />
+            <div className="flex flex-col lg:flex-row gap-3 min-h-[400px]">
+              <div className="lg:w-2/3 flex flex-col h-[400px] lg:h-auto">
+                <AlertTable events={events} />
+              </div>
+              <div className="lg:w-1/3 flex flex-col h-[400px] lg:h-auto">
+                <ActiveSessions sessions={activeSessions} />
+              </div>
+            </div>
+            <div className="h-[300px] sm:h-[400px] min-h-[300px]">
+              <TerminalFeed events={events} />
+            </div>
+          </div>
+        );
+      case 'radar':
+        return (
+          <div className="h-full w-full glass-panel rounded-xl overflow-hidden min-h-[500px]">
+            <GlobeRadar events={events} latestEvent={latestEvent} />
+          </div>
+        );
+      case 'ports':
+        return (
+          <div className="h-full w-full min-h-[500px]">
+            <OpenPortsTable />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <>
       {/* CRT scan-line decorative overlay */}
@@ -86,44 +127,27 @@ export default function DashboardPage() {
       <Navbar isConnected={isConnected} totalEvents={events.length} />
 
       {/* ── Main Dashboard Layout ───────────────────────────── */}
-      <main
-        className="flex flex-col gap-3 p-2 sm:p-4 min-h-screen pb-12 overflow-y-auto"
-        style={{
-          paddingTop: 'calc(64px + 0.75rem)', // clear navbar height
-        }}
-      >
+      <div className="flex h-screen overflow-hidden">
+        
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          isOpen={isSidebarOpen} 
+          setIsOpen={setIsSidebarOpen} 
+        />
 
-        {/* ─ Row 1: Metrics rings ──────────── */}
-        <MetricsRow stats={stats} />
-
-        {/* ─ Row 2: Globe + Terminal ──────── */}
-        <div className="flex flex-col lg:flex-row gap-3">
-
-          {/* Globe — responsive heights */}
-          <div
-            className="glass-panel rounded-xl overflow-hidden h-[360px] sm:h-[460px] lg:h-[520px] lg:flex-[0_0_60%]"
-          >
-            <GlobeRadar events={events} latestEvent={latestEvent} />
+        <main
+          className="flex-1 flex flex-col p-2 sm:p-4 overflow-hidden"
+          style={{
+            paddingTop: 'calc(64px + 0.75rem)', // clear navbar height
+          }}
+        >
+          {/* Animated content wrapper */}
+          <div className="flex-1 animate-in fade-in zoom-in-95 duration-300 h-full">
+            {renderContent()}
           </div>
-
-          {/* Terminal feed */}
-          <div className="h-[320px] lg:h-[520px] lg:flex-1 min-w-0">
-            <TerminalFeed events={events} />
-          </div>
-
-        </div>
-
-        {/* ─ Row 3: Alert table & Active Sessions ───────────── */}
-        <div className="flex flex-col lg:flex-row gap-3 h-[360px] sm:h-[400px]">
-          <div className="lg:w-2/3 h-full">
-            <AlertTable events={events} />
-          </div>
-          <div className="lg:w-1/3 h-full">
-            <ActiveSessions sessions={activeSessions} />
-          </div>
-        </div>
-
-      </main>
+        </main>
+      </div>
     </>
   );
 }
