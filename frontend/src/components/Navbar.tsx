@@ -80,10 +80,10 @@ export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
             className="font-orbitron font-black text-xs sm:text-base md:text-xl tracking-wider sm:tracking-widest glow-cyan truncate"
             style={{ color: '#06b6d4' }}
           >
-            SOC COMMAND
+            Kawash's Heimserver
           </h1>
           <p className="hidden sm:block text-[9px] sm:text-[10px] text-slate-500 tracking-[0.2em] sm:tracking-[0.3em] font-mono uppercase mt-0.5 truncate">
-            Security Operations · Threat Intel
+            Security Operation Center
           </p>
         </div>
       </div>
