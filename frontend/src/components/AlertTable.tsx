@@ -8,13 +8,29 @@ import { SecurityEvent, EventType } from '@/hooks/useSocData';
 // ─────────────────────────────────────────────
 // Types & constants
 // ─────────────────────────────────────────────
-type FilterKey = 'ALL' | 'SSH_FAILED' | 'FAIL2BAN_BLOCK' | 'SSH_SUCCESS';
+type FilterKey =
+  | 'ALL'
+  | 'SSH_FAILED'
+  | 'SFTP_FAILED'
+  | 'FTP_FAILED'
+  | 'XRDP_FAILED'
+  | 'SSH_SUCCESS'
+  | 'SFTP_SUCCESS'
+  | 'FTP_SUCCESS'
+  | 'XRDP_SUCCESS'
+  | 'FAIL2BAN_BLOCK';
 
 const FILTERS: { key: FilterKey; label: string; color: string }[] = [
   { key: 'ALL',            label: 'All Events',    color: '#94a3b8' },
   { key: 'SSH_FAILED',     label: 'SSH Failed',    color: '#ff003c' },
-  { key: 'FAIL2BAN_BLOCK', label: 'Fail2Ban',      color: '#f97316' },
+  { key: 'SFTP_FAILED',    label: 'SFTP Failed',   color: '#fb7185' },
+  { key: 'FTP_FAILED',     label: 'FTP Failed',    color: '#f43f5e' },
+  { key: 'XRDP_FAILED',    label: 'XRDP Failed',   color: '#ef4444' },
   { key: 'SSH_SUCCESS',    label: 'SSH Success',   color: '#06b6d4' },
+  { key: 'SFTP_SUCCESS',   label: 'SFTP Success',  color: '#38bdf8' },
+  { key: 'FTP_SUCCESS',    label: 'FTP Success',   color: '#22d3ee' },
+  { key: 'XRDP_SUCCESS',   label: 'XRDP Success',  color: '#2dd4bf' },
+  { key: 'FAIL2BAN_BLOCK', label: 'Fail2Ban',      color: '#f97316' },
 ];
 
 interface BadgeProps { type: EventType }
@@ -22,11 +38,17 @@ function EventBadge({ type }: BadgeProps) {
   const map: Record<EventType, string> = {
     SSH_FAILED       : 'badge-red',
     SSH_SUCCESS      : 'badge-cyan',
+    SFTP_FAILED      : 'badge-red',
+    SFTP_SUCCESS     : 'badge-cyan',
+    FTP_FAILED       : 'badge-red',
+    FTP_SUCCESS      : 'badge-cyan',
+    XRDP_FAILED      : 'badge-red',
+    XRDP_SUCCESS     : 'badge-cyan',
     FAIL2BAN_BLOCK   : 'badge-orange',
     FAIL2BAN_UNBLOCK : 'badge-yellow',
     UNKNOWN          : 'badge-gray',
   };
-  return <span className={map[type] ?? 'badge-gray'}>{type.replace('_', ' ')}</span>;
+  return <span className={map[type] ?? 'badge-gray'}>{type.replace(/_/g, ' ')}</span>;
 }
 
 interface RowGlowStyle { background?: string; borderLeft?: string }
@@ -34,7 +56,13 @@ function getRowStyle(type: EventType, isFirst: boolean): RowGlowStyle {
   if (!isFirst) return {};
   switch (type) {
     case 'SSH_FAILED'      : return { background: 'rgba(255,0,60,0.06)',   borderLeft: '2px solid rgba(255,0,60,0.5)' };
+    case 'SFTP_FAILED'     : return { background: 'rgba(251,113,133,0.06)', borderLeft: '2px solid rgba(251,113,133,0.5)' };
+    case 'FTP_FAILED'      : return { background: 'rgba(244,63,94,0.06)', borderLeft: '2px solid rgba(244,63,94,0.5)' };
+    case 'XRDP_FAILED'     : return { background: 'rgba(239,68,68,0.06)', borderLeft: '2px solid rgba(239,68,68,0.5)' };
     case 'SSH_SUCCESS'     : return { background: 'rgba(6,182,212,0.06)', borderLeft: '2px solid rgba(6,182,212,0.5)' };
+    case 'SFTP_SUCCESS'    : return { background: 'rgba(56,189,248,0.06)', borderLeft: '2px solid rgba(56,189,248,0.5)' };
+    case 'FTP_SUCCESS'     : return { background: 'rgba(34,211,238,0.06)', borderLeft: '2px solid rgba(34,211,238,0.5)' };
+    case 'XRDP_SUCCESS'    : return { background: 'rgba(45,212,191,0.06)', borderLeft: '2px solid rgba(45,212,191,0.5)' };
     case 'FAIL2BAN_BLOCK'  : return { background: 'rgba(249,115,22,0.06)', borderLeft: '2px solid rgba(249,115,22,0.5)' };
     case 'FAIL2BAN_UNBLOCK': return { background: 'rgba(234,179,8,0.06)',  borderLeft: '2px solid rgba(234,179,8,0.5)' };
     default: return {};

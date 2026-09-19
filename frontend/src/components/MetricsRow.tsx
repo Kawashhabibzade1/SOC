@@ -116,7 +116,7 @@ export default function MetricsRow({ stats }: MetricsRowProps) {
       label     : 'Failed Logins',
       value     : stats.failedLogins,
       max       : Math.max(stats.totalEvents, 1),
-      sublabel  : 'ssh_failed',
+      sublabel  : 'ssh/sftp/ftp/xrdp',
       color     : '#ff003c',
       trackColor: 'rgba(255,0,60,0.1)',
       glowColor : 'rgba(255,0,60,0.6)',

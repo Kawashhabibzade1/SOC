@@ -26,6 +26,12 @@ CREATE TABLE IF NOT EXISTS security_events (
     event_type    ENUM(
                     'SSH_FAILED',
                     'SSH_SUCCESS',
+                    'SFTP_FAILED',
+                    'SFTP_SUCCESS',
+                    'FTP_FAILED',
+                    'FTP_SUCCESS',
+                    'XRDP_FAILED',
+                    'XRDP_SUCCESS',
                     'FAIL2BAN_BLOCK',
                     'FAIL2BAN_UNBLOCK',
                     'UNKNOWN'

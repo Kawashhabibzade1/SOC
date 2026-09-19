@@ -172,7 +172,7 @@ app.get('/api/events/recent', cors(corsOptions), async (req, res) => {
  * GET /api/events/stats
  * Returns aggregate stats for dashboard widgets:
  *  - Total event counts grouped by event_type (last 24h)
- *  - Top 10 attacker IP addresses (last 24h)
+ *  - Top 10 attacking IP addresses across login failures (last 24h)
  */
 app.get('/api/events/stats', cors(corsOptions), async (req, res) => {
   try {
@@ -187,7 +187,7 @@ app.get('/api/events/stats', cors(corsOptions), async (req, res) => {
          GROUP BY event_type
          ORDER BY total DESC`
       ),
-      // Top 10 IPs by number of failed SSH attempts in the last 24 hours
+      // Top 10 IPs by failed login attempts in the last 24 hours
       pool.execute(
         `SELECT
            ip_address,
@@ -195,7 +195,7 @@ app.get('/api/events/stats', cors(corsOptions), async (req, res) => {
            city,
            COUNT(*) AS attempt_count
          FROM security_events
-         WHERE event_type = 'SSH_FAILED'
+         WHERE event_type IN ('SSH_FAILED', 'SFTP_FAILED', 'FTP_FAILED', 'XRDP_FAILED')
            AND timestamp >= NOW() - INTERVAL 24 HOUR
          GROUP BY ip_address, country, city
          ORDER BY attempt_count DESC

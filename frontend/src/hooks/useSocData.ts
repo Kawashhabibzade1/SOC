@@ -9,6 +9,12 @@ import { io, Socket } from 'socket.io-client';
 export type EventType =
   | 'SSH_FAILED'
   | 'SSH_SUCCESS'
+  | 'SFTP_FAILED'
+  | 'SFTP_SUCCESS'
+  | 'FTP_FAILED'
+  | 'FTP_SUCCESS'
+  | 'XRDP_FAILED'
+  | 'XRDP_SUCCESS'
   | 'FAIL2BAN_BLOCK'
   | 'FAIL2BAN_UNBLOCK'
   | 'UNKNOWN';
@@ -46,6 +52,8 @@ export interface SocDataState {
 const GATEWAY_URL  = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
 const MAX_EVENTS   = 300; // Rolling buffer size
 const FETCH_LIMIT  = 100; // Historical events to load on startup
+const FAILED_LOGIN_EVENTS: EventType[] = ['SSH_FAILED', 'SFTP_FAILED', 'FTP_FAILED', 'XRDP_FAILED'];
+const SUCCESS_LOGIN_EVENTS: EventType[] = ['SSH_SUCCESS', 'SFTP_SUCCESS', 'FTP_SUCCESS', 'XRDP_SUCCESS'];
 
 // ─────────────────────────────────────────────
 // Hook
@@ -125,9 +133,9 @@ export function useSocData(): SocDataState {
   // ── Derived stats (computed from current events array) ──
   const stats: SocStats = {
     totalEvents    : events.length,
-    failedLogins   : events.filter(e => e.event_type === 'SSH_FAILED').length,
+    failedLogins   : events.filter(e => FAILED_LOGIN_EVENTS.includes(e.event_type)).length,
     blocks         : events.filter(e => e.event_type === 'FAIL2BAN_BLOCK').length,
-    successLogins  : events.filter(e => e.event_type === 'SSH_SUCCESS').length,
+    successLogins  : events.filter(e => SUCCESS_LOGIN_EVENTS.includes(e.event_type)).length,
     uniqueCountries: new Set(events.map(e => e.country).filter(Boolean)).size,
   };
 

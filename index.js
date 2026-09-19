@@ -33,6 +33,14 @@ const config = {
     timezone             : 'Z',
   },
   logSource: process.env.LOG_SOURCE || 'journalctl',
+  authLogFiles: (process.env.AUTH_LOG_FILES || '/var/log/auth.log,/var/log/vsftpd.log,/var/log/xrdp.log,/var/log/xrdp-sesman.log,/var/log/fail2ban.log')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean),
+  journalUnits: (process.env.JOURNAL_UNITS || 'ssh,sshd,fail2ban,vsftpd,xrdp,xrdp-sesman')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean),
 
   // ── Phase 2 Gateway notification ─────────────────────────
   // Set GATEWAY_URL to the gateway's /internal/notify endpoint.
@@ -157,6 +165,41 @@ async function notifyGateway(event) {
 // ─────────────────────────────────────────────
 const PATTERNS = [
   {
+    event_type : 'SFTP_SUCCESS',
+    regex      : /internal-sftp\[\d+\]: session opened for local user (\S+) from \[([\d.a-fA-F:]+)\]/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  {
+    event_type : 'SFTP_FAILED',
+    regex      : /internal-sftp\[\d+\]: .*?(?:auth(?:entication)? failed|failed login).*?from \[?([\d.a-fA-F:]+)\]?/i,
+    extract    : (m) => ({ targeted_user: null, ip_address: m[1] }),
+  },
+  {
+    event_type : 'FTP_SUCCESS',
+    regex      : /vsftpd\[\d+\]: \[(.+?)\] OK LOGIN: Client "([\d.a-fA-F:]+)"/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  {
+    event_type : 'FTP_FAILED',
+    regex      : /pam_unix\(vsftpd:auth\): authentication failure;.*?rhost=([\d.a-fA-F:]+).*?user=([^\s]+)/i,
+    extract    : (m) => ({ targeted_user: m[2], ip_address: m[1] }),
+  },
+  {
+    event_type : 'FTP_FAILED',
+    regex      : /vsftpd\[\d+\]: \[(.*?)\] FAIL LOGIN: Client "([\d.a-fA-F:]+)"/i,
+    extract    : (m) => ({ targeted_user: m[1] || null, ip_address: m[2] }),
+  },
+  {
+    event_type : 'XRDP_SUCCESS',
+    regex      : /xrdp-sesman\[\d+\]: .*?\[([^\]]+)\].*?login (?:successful|succeeded).*?(?:ip|from)\s*[:=]?\s*([\d.a-fA-F:]+)/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  {
+    event_type : 'XRDP_FAILED',
+    regex      : /xrdp-sesman\[\d+\]: .*?login failed for user (\S+).*?(?:ip|from)\s*[:=]?\s*([\d.a-fA-F:]+)/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  {
     event_type : 'SSH_FAILED',
     regex      : /Failed (?:password|publickey) for (?:invalid user )?(\S+) from ([\d.a-fA-F:]+) port/,
     extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
@@ -168,12 +211,12 @@ const PATTERNS = [
   },
   {
     event_type : 'FAIL2BAN_BLOCK',
-    regex      : /\[sshd\] Ban ([\d.a-fA-F:]+)/,
+    regex      : /\[[^\]]+\]\sBan ([\d.a-fA-F:]+)/,
     extract    : (m) => ({ ip_address: m[1], targeted_user: null }),
   },
   {
     event_type : 'FAIL2BAN_UNBLOCK',
-    regex      : /\[sshd\] Unban ([\d.a-fA-F:]+)/,
+    regex      : /\[[^\]]+\]\sUnban ([\d.a-fA-F:]+)/,
     extract    : (m) => ({ ip_address: m[1], targeted_user: null }),
   },
 ];
@@ -216,11 +259,13 @@ function startCollector() {
   let child;
 
   if (config.logSource === 'auth') {
-    console.log('[Collector] Starting: tail -f /var/log/auth.log');
-    child = spawn('tail', ['-f', '-n', '0', '/var/log/auth.log']);
+    console.log(`[Collector] Starting: tail -F ${config.authLogFiles.join(' ')}`);
+    child = spawn('tail', ['-F', '-n', '0', ...config.authLogFiles]);
   } else {
-    console.log('[Collector] Starting: journalctl -u ssh -f');
-    child = spawn('journalctl', ['-u', 'ssh', '-f', '-n', '0', '--output=cat']);
+    const unitArgs = config.journalUnits.flatMap((unit) => ['-u', unit]);
+    const journalArgs = [...unitArgs, '-f', '-n', '0', '--output=cat'];
+    console.log(`[Collector] Starting: journalctl ${journalArgs.join(' ')}`);
+    child = spawn('journalctl', journalArgs);
   }
 
   const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
