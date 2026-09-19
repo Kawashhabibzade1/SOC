@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Lock, Loader2 } from 'lucide-react';
 
@@ -10,28 +10,9 @@ export default function OtpVerificationV7() {
   const [isVerified, setIsVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showQr, setShowQr] = useState(false);
-  const [qrData, setQrData] = useState<{ secret: string; qrDataUrl: string } | null>(null);
-  const [qrLoading, setQrLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
-
-  const fetchQr = async () => {
-    setQrLoading(true);
-    try {
-      const res = await fetch(`${GATEWAY_URL}/api/auth/qr`);
-      const data = await res.json();
-      if (data.success) {
-        setQrData({ secret: data.secret, qrDataUrl: data.qrDataUrl });
-      }
-    } catch {
-      // ignore
-    } finally {
-      setQrLoading(false);
-    }
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const value = e.target.value;
@@ -128,56 +109,6 @@ export default function OtpVerificationV7() {
               {error && <p className="text-red-500 text-sm text-center">{error}</p>}
             </div>
 
-            {/* QR Code / Re-sync Helper */}
-            <div className="mt-4 w-full text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowQr(!showQr);
-                  if (!qrData) fetchQr();
-                }}
-                className="text-xs text-zinc-400 hover:text-white underline tracking-wide transition-colors"
-              >
-                {showQr ? 'Hide QR Code' : '📱 Scan QR Code / Re-sync Authenticator'}
-              </button>
-
-              {showQr && (
-                <div className="mt-4 p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-left animate-in fade-in zoom-in duration-200">
-                  <p className="text-xs text-zinc-300 font-medium mb-3 text-center">
-                    In MS Authenticator: Tap <span className="text-white font-bold">+</span> &rarr; <span className="text-white font-bold">Other</span> &rarr; Scan:
-                  </p>
-                  
-                  {qrLoading ? (
-                    <Loader2 className="w-8 h-8 text-zinc-500 animate-spin mx-auto my-6" />
-                  ) : qrData ? (
-                    <div className="flex flex-col items-center gap-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={qrData.qrDataUrl}
-                        alt="2FA QR Code"
-                        className="w-44 h-44 rounded-xl bg-white p-2 shadow-lg"
-                      />
-                      <div className="w-full text-center mt-1">
-                        <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Manual Entry Key</p>
-                        <code
-                          onClick={() => {
-                            navigator.clipboard.writeText(qrData.secret);
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
-                          }}
-                          className="block text-xs font-mono text-cyan-400 bg-zinc-950 px-2 py-1.5 rounded border border-zinc-800 cursor-pointer hover:border-cyan-500/50 transition-colors"
-                          title="Click to copy"
-                        >
-                          {copied ? '✓ Copied to clipboard!' : qrData.secret}
-                        </code>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-red-400 text-center">Could not load QR code.</p>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center flex-1 animate-in fade-in zoom-in duration-500">

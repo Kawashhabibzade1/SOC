@@ -43,8 +43,10 @@ export default function LoginV5() {
     <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden font-sans p-4">
       {/* Decorative background grid/glow */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-950/30 via-black to-black" />
+    <div className="absolute top-16 left-10 w-44 h-44 bg-blue-600/20 blur-3xl rounded-full animate-pulse" />
+    <div className="absolute bottom-12 right-10 w-56 h-56 bg-cyan-500/10 blur-3xl rounded-full animate-pulse [animation-delay:700ms]" />
       
-      <div className="relative z-10 w-full max-w-4xl flex flex-col md:flex-row rounded-3xl border border-zinc-800 bg-zinc-950/50 backdrop-blur-xl shadow-[0_0_60px_-15px_rgba(37,99,235,0.2)] overflow-hidden">
+    <div className="relative z-10 w-full max-w-4xl flex flex-col md:flex-row rounded-3xl border border-zinc-800 bg-zinc-950/50 backdrop-blur-xl shadow-[0_0_60px_-15px_rgba(37,99,235,0.2)] overflow-hidden animate-in fade-in zoom-in-95 duration-500">
         
         {/* Left Panel */}
         <div className="md:w-5/12 p-10 flex flex-col items-center justify-center text-center relative">
@@ -72,7 +74,7 @@ export default function LoginV5() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Username or Email"
-                className="w-full pl-12 pr-4 py-3.5 bg-zinc-950/50 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-white placeholder-zinc-500 outline-none transition-all"
+                className="w-full pl-12 pr-4 py-3.5 bg-zinc-950/50 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-white placeholder-zinc-500 outline-none transition-all focus:-translate-y-0.5"
                 required
               />
             </div>
@@ -87,7 +89,7 @@ export default function LoginV5() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
-                className="w-full pl-12 pr-12 py-3.5 bg-zinc-950/50 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-white placeholder-zinc-500 outline-none transition-all"
+                className="w-full pl-12 pr-12 py-3.5 bg-zinc-950/50 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-white placeholder-zinc-500 outline-none transition-all focus:-translate-y-0.5"
                 required
               />
               <button
@@ -103,7 +105,7 @@ export default function LoginV5() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] mt-4 flex justify-center items-center disabled:opacity-70"
+              className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-500 hover:scale-[1.01] active:scale-[0.99] text-white font-medium rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] mt-4 flex justify-center items-center disabled:opacity-70 disabled:hover:scale-100"
             >
               {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Login'}
             </button>
