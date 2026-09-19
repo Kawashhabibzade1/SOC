@@ -9,6 +9,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarProps) {
+  const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'radar', label: 'Globe Radar', icon: Globe2 },
     { id: 'system', label: 'System Metrics', icon: Activity },

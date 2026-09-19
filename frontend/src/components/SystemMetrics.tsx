@@ -6,6 +6,8 @@ interface SystemData {
   mem: { total: number; used: number; free: number; active: number };
   disk: Array<{ fs: string; type: string; size: number; used: number; available: number; use: number; mount: string }>;
   os: { platform: string; distro: string; uptime: number };
+}
+
 interface SystemMetricsProps {
   onNavigateToExplorer?: (path: string) => void;
 }
