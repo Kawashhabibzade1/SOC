@@ -40,9 +40,9 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
 
   // Use Memo for data calculations so globe doesn't stutter on every re-render
   const { arcsData, pointsData, ringsData } = useMemo(() => {
-    const arcs = [];
-    const points = [];
-    const rings = [];
+    const arcs: any[] = [];
+    const points: any[] = [];
+    const rings: any[] = [];
 
     // Base HQ Ring
     rings.push({
