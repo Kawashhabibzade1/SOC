@@ -25,8 +25,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title       : 'SOC Radar | Security Command Center',
-  description : 'Real-time Security Operations Center dashboard. Live SSH attack monitoring, threat geolocation, and Fail2Ban telemetry.',
-  keywords    : ['SOC', 'security', 'dashboard', 'SSH', 'Fail2Ban', 'threat intelligence'],
+  description : 'Real-time Security Operations Center dashboard. Live SSH, SFTP, FTP, and XRDP attack monitoring with threat geolocation and Fail2Ban telemetry.',
+  keywords    : ['SOC', 'security', 'dashboard', 'SSH', 'SFTP', 'FTP', 'XRDP', 'Fail2Ban', 'threat intelligence'],
   themeColor  : '#020817',
 };
 

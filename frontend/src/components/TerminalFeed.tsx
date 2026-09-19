@@ -10,6 +10,12 @@ import { SecurityEvent, EventType } from '@/hooks/useSocData';
 const TYPE_STYLE: Record<EventType, { tag: string; color: string; dim: string }> = {
   SSH_FAILED       : { tag: 'FAIL ', color: '#ff003c', dim: '#7f0022' },
   SSH_SUCCESS      : { tag: 'AUTH ', color: '#06b6d4', dim: '#035c6e' },
+  SFTP_FAILED      : { tag: 'SFTP!', color: '#fb7185', dim: '#881337' },
+  SFTP_SUCCESS     : { tag: 'SFTP+', color: '#38bdf8', dim: '#0c4a6e' },
+  FTP_FAILED       : { tag: 'FTP! ', color: '#f43f5e', dim: '#881337' },
+  FTP_SUCCESS      : { tag: 'FTP+ ', color: '#22d3ee', dim: '#155e75' },
+  XRDP_FAILED      : { tag: 'RDP! ', color: '#ef4444', dim: '#7f1d1d' },
+  XRDP_SUCCESS     : { tag: 'RDP+ ', color: '#2dd4bf', dim: '#115e59' },
   FAIL2BAN_BLOCK   : { tag: 'BAN  ', color: '#f97316', dim: '#7c3912' },
   FAIL2BAN_UNBLOCK : { tag: 'UNBAN', color: '#eab308', dim: '#75590e' },
   UNKNOWN          : { tag: '?????', color: '#6b7280', dim: '#374151' },

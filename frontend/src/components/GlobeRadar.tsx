@@ -157,6 +157,12 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
         let color = 0x64748b;
         if (event.event_type === 'SSH_FAILED') color = 0xff003c;
         if (event.event_type === 'SSH_SUCCESS') color = 0x06b6d4;
+        if (event.event_type === 'SFTP_FAILED') color = 0xfb7185;
+        if (event.event_type === 'SFTP_SUCCESS') color = 0x38bdf8;
+        if (event.event_type === 'FTP_FAILED') color = 0xf43f5e;
+        if (event.event_type === 'FTP_SUCCESS') color = 0x22d3ee;
+        if (event.event_type === 'XRDP_FAILED') color = 0xef4444;
+        if (event.event_type === 'XRDP_SUCCESS') color = 0x2dd4bf;
         if (event.event_type === 'FAIL2BAN_BLOCK') color = 0xf97316;
         if (event.event_type === 'FAIL2BAN_UNBLOCK') color = 0xeab308;
 
@@ -168,7 +174,8 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
         markersGroup.add(dot);
 
         // Vertical laser beacon
-        const spikeHeight = event.event_type === 'SSH_FAILED' ? 14 : 9;
+        const failedTypes = ['SSH_FAILED', 'SFTP_FAILED', 'FTP_FAILED', 'XRDP_FAILED'];
+        const spikeHeight = failedTypes.includes(event.event_type) ? 14 : 9;
         const spikeEnd = pos.clone().add(normal.clone().multiplyScalar(spikeHeight));
         const spikeGeo = new THREE.BufferGeometry().setFromPoints([pos, spikeEnd]);
         const spikeMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.8 });
@@ -187,7 +194,7 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
           const arcMat = new THREE.LineBasicMaterial({
             color,
             transparent: true,
-            opacity: event.event_type === 'SSH_FAILED' ? 0.65 : 0.4,
+            opacity: ['SSH_FAILED', 'SFTP_FAILED', 'FTP_FAILED', 'XRDP_FAILED'].includes(event.event_type) ? 0.65 : 0.4,
           });
           const arcLine = new THREE.Line(arcGeo, arcMat);
           markersGroup.add(arcLine);
@@ -317,11 +324,11 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse glow-red" />
-          <span className="font-mono text-[10px] text-red-400 tracking-widest uppercase">Threat Arcs: {events.filter(e => e.event_type === 'SSH_FAILED' || e.event_type === 'FAIL2BAN_BLOCK').length}</span>
+          <span className="font-mono text-[10px] text-red-400 tracking-widest uppercase">Threat Arcs: {events.filter(e => ['SSH_FAILED', 'SFTP_FAILED', 'FTP_FAILED', 'XRDP_FAILED', 'FAIL2BAN_BLOCK'].includes(e.event_type)).length}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-cyan-500 glow-cyan" />
-          <span className="font-mono text-[10px] text-slate-400 tracking-widest uppercase">Verified: {events.filter(e => e.event_type === 'SSH_SUCCESS').length}</span>
+          <span className="font-mono text-[10px] text-slate-400 tracking-widest uppercase">Verified: {events.filter(e => ['SSH_SUCCESS', 'SFTP_SUCCESS', 'FTP_SUCCESS', 'XRDP_SUCCESS'].includes(e.event_type)).length}</span>
         </div>
       </div>
     </div>
