@@ -155,10 +155,12 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
         const normal = pos.clone().normalize();
 
         let color = 0x64748b;
-        if (event.event_type === 'SSH_FAILED') color = 0xff003c;
-        if (event.event_type === 'SSH_SUCCESS') color = 0x06b6d4;
-        if (event.event_type === 'FAIL2BAN_BLOCK') color = 0xf97316;
+        if (event.event_type === 'SSH_FAILED')      color = 0xff003c;
+        if (event.event_type === 'SSH_SUCCESS')     color = 0x06b6d4;
+        if (event.event_type === 'FAIL2BAN_BLOCK')  color = 0xf97316;
         if (event.event_type === 'FAIL2BAN_UNBLOCK') color = 0xeab308;
+        if (event.event_type === 'XRDP_FAILED')     color = 0xd946ef;
+        if (event.event_type === 'FTP_FAILED')      color = 0xec4899;
 
         // Core dot
         const dotGeo = new THREE.SphereGeometry(2.5, 12, 12);
@@ -317,7 +319,7 @@ export default function GlobeRadar({ events, latestEvent }: GlobeRadarProps) {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse glow-red" />
-          <span className="font-mono text-[10px] text-red-400 tracking-widest uppercase">Threat Arcs: {events.filter(e => e.event_type === 'SSH_FAILED' || e.event_type === 'FAIL2BAN_BLOCK').length}</span>
+          <span className="font-mono text-[10px] text-red-400 tracking-widest uppercase">Threat Arcs: {events.filter(e => e.event_type === 'SSH_FAILED' || e.event_type === 'FAIL2BAN_BLOCK' || e.event_type === 'XRDP_FAILED' || e.event_type === 'FTP_FAILED').length}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-cyan-500 glow-cyan" />

@@ -12,6 +12,8 @@ const TYPE_STYLE: Record<EventType, { tag: string; color: string; dim: string }>
   SSH_SUCCESS      : { tag: 'AUTH ', color: '#06b6d4', dim: '#035c6e' },
   FAIL2BAN_BLOCK   : { tag: 'BAN  ', color: '#f97316', dim: '#7c3912' },
   FAIL2BAN_UNBLOCK : { tag: 'UNBAN', color: '#eab308', dim: '#75590e' },
+  XRDP_FAILED      : { tag: 'XRDP ', color: '#d946ef', dim: '#7a1f8a' },
+  FTP_FAILED       : { tag: 'FTP  ', color: '#ec4899', dim: '#8b1a54' },
   UNKNOWN          : { tag: '?????', color: '#6b7280', dim: '#374151' },
 };
 

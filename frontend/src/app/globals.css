@@ -97,11 +97,13 @@ body {
     @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium tracking-wider;
   }
 
-  .badge-red    { @apply badge bg-red-500/15    text-red-400    border border-red-500/25; }
-  .badge-cyan   { @apply badge bg-cyan-500/15   text-cyan-400   border border-cyan-500/25; }
-  .badge-orange { @apply badge bg-orange-500/15 text-orange-400 border border-orange-500/25; }
-  .badge-yellow { @apply badge bg-yellow-500/15 text-yellow-400 border border-yellow-500/25; }
-  .badge-gray   { @apply badge bg-gray-500/15   text-gray-400   border border-gray-500/25; }
+  .badge-red     { @apply badge bg-red-500/15      text-red-400      border border-red-500/25; }
+  .badge-cyan    { @apply badge bg-cyan-500/15     text-cyan-400     border border-cyan-500/25; }
+  .badge-orange  { @apply badge bg-orange-500/15   text-orange-400   border border-orange-500/25; }
+  .badge-yellow  { @apply badge bg-yellow-500/15   text-yellow-400   border border-yellow-500/25; }
+  .badge-fuchsia { @apply badge bg-fuchsia-500/15  text-fuchsia-400  border border-fuchsia-500/25; }
+  .badge-pink    { @apply badge bg-pink-500/15     text-pink-400     border border-pink-500/25; }
+  .badge-gray    { @apply badge bg-gray-500/15     text-gray-400     border border-gray-500/25; }
 }
 
 /* ─── Scan Line Overlay (decorative) ────────────────── */
