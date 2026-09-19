@@ -14,6 +14,7 @@ const TYPE_STYLE: Record<EventType, { tag: string; color: string; dim: string }>
   FAIL2BAN_UNBLOCK : { tag: 'UNBAN', color: '#eab308', dim: '#75590e' },
   XRDP_FAILED      : { tag: 'XRDP ', color: '#d946ef', dim: '#7a1f8a' },
   FTP_FAILED       : { tag: 'FTP  ', color: '#ec4899', dim: '#8b1a54' },
+  SFTP_FAILED      : { tag: 'SFTP ', color: '#14b8a6', dim: '#0d6e67' },
   UNKNOWN          : { tag: '?????', color: '#6b7280', dim: '#374151' },
 };
 

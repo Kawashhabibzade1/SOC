@@ -156,6 +156,7 @@ async function notifyGateway(event) {
 // 4. PARSER MODULE
 // ─────────────────────────────────────────────
 const PATTERNS = [
+  // ── SSH ──────────────────────────────────────────────────────────────────
   {
     event_type : 'SSH_FAILED',
     regex      : /Failed (?:password|publickey) for (?:invalid user )?(\S+) from ([\d.a-fA-F:]+) port/,
@@ -166,6 +167,7 @@ const PATTERNS = [
     regex      : /Accepted (?:password|publickey) for (\S+) from ([\d.a-fA-F:]+) port/,
     extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
   },
+  // ── Fail2Ban ─────────────────────────────────────────────────────────────
   {
     event_type : 'FAIL2BAN_BLOCK',
     regex      : /\[sshd\] Ban ([\d.a-fA-F:]+)/,
@@ -175,6 +177,45 @@ const PATTERNS = [
     event_type : 'FAIL2BAN_UNBLOCK',
     regex      : /\[sshd\] Unban ([\d.a-fA-F:]+)/,
     extract    : (m) => ({ ip_address: m[1], targeted_user: null }),
+  },
+  // ── XRDP (/var/log/xrdp-sesman.log) ─────────────────────────────────────
+  // Format: sesman_auth: authfail - auth not valid for user root from ip 1.2.3.4
+  {
+    event_type : 'XRDP_FAILED',
+    regex      : /sesman_auth.*user\s+(\S+)\s+from\s+ip\s+([\d.]+)/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  // Fallback XRDP pattern (no username in log)
+  {
+    event_type : 'XRDP_FAILED',
+    regex      : /(?:xrdp|sesman).*(?:auth|login)\s+fail.*?([\d]{1,3}(?:\.[\d]{1,3}){3})/i,
+    extract    : (m) => ({ targeted_user: null, ip_address: m[1] }),
+  },
+  // ── FTP (vsftpd: /var/log/vsftpd.log) ────────────────────────────────────
+  // Format: [pid XXXX] [user] FAIL LOGIN: Client "1.2.3.4"
+  {
+    event_type : 'FTP_FAILED',
+    regex      : /\[([^\]]+)\]\s+FAIL LOGIN:\s+Client\s+"([\d.]+)"/i,
+    extract    : (m) => ({ targeted_user: m[1] === 'anonymous' ? null : m[1], ip_address: m[2] }),
+  },
+  // ProFTPD / generic FTP fail fallback
+  {
+    event_type : 'FTP_FAILED',
+    regex      : /(?:ftp|proftpd|pure-ftpd).*(?:failed|denied|rejected|invalid).*?([\d]{1,3}(?:\.[\d]{1,3}){3})/i,
+    extract    : (m) => ({ targeted_user: null, ip_address: m[1] }),
+  },
+  // ── SFTP (OpenSSH subsystem — auth.log/journalctl) ───────────────────────
+  // SFTP logins appear in auth.log like SSH but with sftp subsystem
+  {
+    event_type : 'SFTP_FAILED',
+    regex      : /Failed (?:password|publickey) for (?:invalid user )?(\S+) from ([\d.a-fA-F:]+) port.*sftp/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  // ProFTPD with SFTP module
+  {
+    event_type : 'SFTP_FAILED',
+    regex      : /mod_sftp.*(?:failed|denied|error).*?([\d]{1,3}(?:\.[\d]{1,3}){3})/i,
+    extract    : (m) => ({ targeted_user: null, ip_address: m[1] }),
   },
 ];
 
@@ -212,16 +253,12 @@ function enrichWithGeo(event) {
 // ─────────────────────────────────────────────
 // 6. LOG COLLECTOR MODULE
 // ─────────────────────────────────────────────
-function startCollector() {
-  let child;
-
-  if (config.logSource === 'auth') {
-    console.log('[Collector] Starting: tail -f /var/log/auth.log');
-    child = spawn('tail', ['-f', '-n', '0', '/var/log/auth.log']);
-  } else {
-    console.log('[Collector] Starting: journalctl -u ssh -f');
-    child = spawn('journalctl', ['-u', 'ssh', '-f', '-n', '0', '--output=cat']);
-  }
+/**
+ * Generic file tail watcher — used for XRDP, FTP, and any extra log sources.
+ * Silently skips if the log file doesn't exist on this system.
+ */
+function startFileWatcher(filePath, label) {
+  const child = spawn('tail', ['-f', '-n', '0', filePath]);
 
   const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
 
@@ -235,18 +272,79 @@ function startCollector() {
 
   child.stderr.on('data', (data) => {
     const msg = data.toString().trim();
-    if (msg) console.warn(`[Collector] stderr: ${msg}`);
+    if (msg && !msg.includes('No such file')) {
+      console.warn(`[${label}] stderr: ${msg}`);
+    }
   });
 
   child.on('close', (code) => {
-    console.warn(`[Collector] Process exited (code ${code}). Restarting in 5s...`);
-    setTimeout(startCollector, 5000);
+    if (code !== 0) {
+      console.warn(`[${label}] Watcher exited (code ${code}). Retrying in 30s...`);
+      setTimeout(() => startFileWatcher(filePath, label), 30000);
+    }
   });
 
   child.on('error', (err) => {
-    console.error(`[Collector] Failed to start: ${err.message}`);
-    setTimeout(startCollector, 10000);
+    // Log file may not exist on this system — suppress and retry quietly
+    console.warn(`[${label}] Could not tail ${filePath} (${err.message}). Retrying in 60s...`);
+    setTimeout(() => startFileWatcher(filePath, label), 60000);
   });
+}
+
+function startCollector() {
+  // ── Primary SSH / auth log ───────────────────────────────────────────────
+  if (config.logSource === 'auth') {
+    console.log('[Collector] Starting: tail -f /var/log/auth.log');
+    const child = spawn('tail', ['-f', '-n', '0', '/var/log/auth.log']);
+    const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
+    rl.on('line', async (line) => {
+      if (!line.trim()) return;
+      const parsed = parseLine(line);
+      if (!parsed) return;
+      const enriched = enrichWithGeo(parsed);
+      await insertEvent(enriched);
+    });
+    child.stderr.on('data', (data) => {
+      const msg = data.toString().trim();
+      if (msg) console.warn(`[Collector] stderr: ${msg}`);
+    });
+    child.on('close', (code) => {
+      console.warn(`[Collector] Process exited (code ${code}). Restarting in 5s...`);
+      setTimeout(startCollector, 5000);
+    });
+    child.on('error', (err) => {
+      console.error(`[Collector] Failed to start: ${err.message}`);
+      setTimeout(startCollector, 10000);
+    });
+  } else {
+    console.log('[Collector] Starting: journalctl -u ssh -f');
+    const child = spawn('journalctl', ['-u', 'ssh', '-f', '-n', '0', '--output=cat']);
+    const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
+    rl.on('line', async (line) => {
+      if (!line.trim()) return;
+      const parsed = parseLine(line);
+      if (!parsed) return;
+      const enriched = enrichWithGeo(parsed);
+      await insertEvent(enriched);
+    });
+    child.stderr.on('data', (data) => {
+      const msg = data.toString().trim();
+      if (msg) console.warn(`[Collector] stderr: ${msg}`);
+    });
+    child.on('close', (code) => {
+      console.warn(`[Collector] Process exited (code ${code}). Restarting in 5s...`);
+      setTimeout(startCollector, 5000);
+    });
+    child.on('error', (err) => {
+      console.error(`[Collector] Failed to start: ${err.message}`);
+      setTimeout(startCollector, 10000);
+    });
+  }
+
+  // ── Extra log sources (XRDP, FTP/SFTP) ───────────────────────────────────
+  startFileWatcher('/var/log/xrdp-sesman.log', 'XRDP');
+  startFileWatcher('/var/log/vsftpd.log',      'FTP');
+  startFileWatcher('/var/log/proftpd/proftpd.log', 'ProFTPD');
 }
 
 // ─────────────────────────────────────────────

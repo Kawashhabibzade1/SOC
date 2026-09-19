@@ -13,6 +13,7 @@ export type EventType =
   | 'FAIL2BAN_UNBLOCK'
   | 'XRDP_FAILED'
   | 'FTP_FAILED'
+  | 'SFTP_FAILED'
   | 'UNKNOWN';
 
 export interface SecurityEvent {
@@ -130,7 +131,8 @@ export function useSocData(): SocDataState {
     failedLogins   : events.filter(e =>
       e.event_type === 'SSH_FAILED' ||
       e.event_type === 'XRDP_FAILED' ||
-      e.event_type === 'FTP_FAILED'
+      e.event_type === 'FTP_FAILED' ||
+      e.event_type === 'SFTP_FAILED'
     ).length,
     blocks         : events.filter(e => e.event_type === 'FAIL2BAN_BLOCK').length,
     successLogins  : events.filter(e => e.event_type === 'SSH_SUCCESS').length,
