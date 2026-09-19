@@ -145,23 +145,40 @@ app.get('/api/events/recent', cors(corsOptions), async (req, res) => {
   const offset = parseInt(req.query.offset || '0', 10);
 
   try {
-    const [rows] = await pool.execute(
-      `SELECT
-         id,
-         timestamp,
-         event_type,
-         ip_address,
-         targeted_user,
-         country,
-         city,
-         latitude,
-         longitude
-       FROM security_events
-       ORDER BY timestamp DESC
-       LIMIT ? OFFSET ?`,
-      [limit, offset]
-    );
-    res.json({ success: true, count: rows.length, data: rows });
+    const [[rows], [[countResult]], [[failedResult]], [[blockResult]], [[successResult]], [[countryResult]]] = await Promise.all([
+      pool.execute(
+        `SELECT
+           id,
+           timestamp,
+           event_type,
+           ip_address,
+           targeted_user,
+           country,
+           city,
+           latitude,
+           longitude
+         FROM security_events
+         ORDER BY timestamp DESC
+         LIMIT ? OFFSET ?`,
+        [limit, offset]
+      ),
+      pool.execute(`SELECT COUNT(*) AS total FROM security_events`),
+      pool.execute(`SELECT COUNT(*) AS total FROM security_events WHERE event_type IN ('SSH_FAILED', 'XRDP_FAILED', 'FTP_FAILED', 'SFTP_FAILED')`),
+      pool.execute(`SELECT COUNT(*) AS total FROM security_events WHERE event_type = 'FAIL2BAN_BLOCK'`),
+      pool.execute(`SELECT COUNT(*) AS total FROM security_events WHERE event_type = 'SSH_SUCCESS'`),
+      pool.execute(`SELECT COUNT(DISTINCT country) AS total FROM security_events WHERE country IS NOT NULL`)
+    ]);
+
+    res.json({
+      success: true,
+      count: rows.length,
+      data: rows,
+      totalEvents: countResult.total,
+      totalFailed: failedResult.total,
+      totalBlocks: blockResult.total,
+      totalSuccess: successResult.total,
+      totalCountries: countryResult.total
+    });
   } catch (err) {
     console.error('[REST] /api/events/recent error:', err.message);
     res.status(500).json({ success: false, error: 'Database query failed.' });

@@ -99,7 +99,7 @@ export default function AlertTable({ events }: Props) {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-wrap">
           {FILTERS.map(f => (
             <button
               key={f.key}

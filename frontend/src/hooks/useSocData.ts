@@ -57,6 +57,13 @@ export function useSocData(): SocDataState {
   const [events,      setEvents]      = useState<SecurityEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [latestEvent, setLatestEvent] = useState<SecurityEvent | null>(null);
+  const [stats,       setStats]       = useState<SocStats>({
+    totalEvents: 0,
+    failedLogins: 0,
+    blocks: 0,
+    successLogins: 0,
+    uniqueCountries: 0,
+  });
   const socketRef = useRef<Socket | null>(null);
 
   const pushEvent = useCallback((event: SecurityEvent) => {
@@ -74,6 +81,13 @@ export function useSocData(): SocDataState {
       .then(body => {
         if (body.success && Array.isArray(body.data)) {
           setEvents(body.data);
+          setStats({
+            totalEvents    : body.totalEvents ?? body.data.length,
+            failedLogins   : body.totalFailed ?? 0,
+            blocks         : body.totalBlocks ?? 0,
+            successLogins  : body.totalSuccess ?? 0,
+            uniqueCountries: body.totalCountries ?? 0,
+          });
         }
       })
       .catch(err => console.error('[useSocData] History fetch failed:', err.message));
@@ -117,6 +131,23 @@ export function useSocData(): SocDataState {
         longitude    : rawEvent.longitude != null ? Number(rawEvent.longitude) : null,
       };
       pushEvent(normalizedEvent);
+      
+      setStats(prev => {
+        const isFailed = ['SSH_FAILED', 'XRDP_FAILED', 'FTP_FAILED', 'SFTP_FAILED'].includes(normalizedEvent.event_type);
+        const isBlock = normalizedEvent.event_type === 'FAIL2BAN_BLOCK';
+        const isSuccess = normalizedEvent.event_type === 'SSH_SUCCESS';
+        // Unique countries will be roughly estimated on the fly for new events, 
+        // to avoid recalculating the entire set if it's large.
+        const isNewCountry = normalizedEvent.country && !events.some(e => e.country === normalizedEvent.country) ? 1 : 0;
+        
+        return {
+          totalEvents    : prev.totalEvents + 1,
+          failedLogins   : prev.failedLogins + (isFailed ? 1 : 0),
+          blocks         : prev.blocks + (isBlock ? 1 : 0),
+          successLogins  : prev.successLogins + (isSuccess ? 1 : 0),
+          uniqueCountries: prev.uniqueCountries + isNewCountry,
+        };
+      });
     });
 
     return () => {
@@ -124,20 +155,6 @@ export function useSocData(): SocDataState {
       socketRef.current = null;
     };
   }, [pushEvent]);
-
-  // ── Derived stats (computed from current events array) ──
-  const stats: SocStats = {
-    totalEvents    : events.length,
-    failedLogins   : events.filter(e =>
-      e.event_type === 'SSH_FAILED' ||
-      e.event_type === 'XRDP_FAILED' ||
-      e.event_type === 'FTP_FAILED' ||
-      e.event_type === 'SFTP_FAILED'
-    ).length,
-    blocks         : events.filter(e => e.event_type === 'FAIL2BAN_BLOCK').length,
-    successLogins  : events.filter(e => e.event_type === 'SSH_SUCCESS').length,
-    uniqueCountries: new Set(events.map(e => e.country).filter(Boolean)).size,
-  };
 
   return { events, isConnected, latestEvent, stats };
 }
