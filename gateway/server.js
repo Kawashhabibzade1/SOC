@@ -28,6 +28,7 @@ const qrcode    = require('qrcode');
 const { exec }  = require('child_process');
 const util      = require('util');
 const geoip     = require('geoip-lite');
+const si        = require('systeminformation');
 const execAsync = util.promisify(exec);
 
 // ─────────────────────────────────────────────
@@ -395,7 +396,7 @@ app.post('/api/block-ip', cors(corsOptions), async (req, res) => {
     const isWin = process.platform === 'win32';
     const cmd = isWin 
       ? `netsh advfirewall firewall add rule name="Block ${ip}" dir=in action=block remoteip=${ip}`
-      : `sudo iptables -A INPUT -s ${ip} -j DROP`; // default to iptables for linux
+      : `sudo -n iptables -A INPUT -s ${ip} -j DROP`; // default to iptables for linux
 
     console.log(`[Firewall] Executing block for IP: ${ip} -> ${cmd}`);
     
@@ -424,7 +425,7 @@ app.post('/api/unblock-ip', cors(corsOptions), async (req, res) => {
     const isWin = process.platform === 'win32';
     const cmd = isWin 
       ? `netsh advfirewall firewall delete rule name="Block ${ip}"`
-      : `sudo iptables -D INPUT -s ${ip} -j DROP`; // default to iptables for linux
+      : `sudo -n iptables -D INPUT -s ${ip} -j DROP`; // default to iptables for linux
 
     console.log(`[Firewall] Executing unblock for IP: ${ip} -> ${cmd}`);
     
@@ -455,11 +456,11 @@ app.post('/api/manage-port', cors(corsOptions), async (req, res) => {
     if (action === 'close') {
       cmd = isWin
         ? `netsh advfirewall firewall add rule name="Block Port ${port}" dir=in action=block protocol=${protocol} localport=${port}`
-        : `sudo iptables -I INPUT -p ${protocol} --dport ${port} -j DROP`;
+        : `sudo -n iptables -I INPUT -p ${protocol} --dport ${port} -j DROP`;
     } else if (action === 'open') {
       cmd = isWin
         ? `netsh advfirewall firewall delete rule name="Block Port ${port}"`
-        : `sudo iptables -D INPUT -p ${protocol} --dport ${port} -j DROP`;
+        : `sudo -n iptables -D INPUT -p ${protocol} --dport ${port} -j DROP`;
     }
 
     console.log(`[Firewall] Manage Port ${port} (${action}) -> ${cmd}`);
@@ -485,7 +486,7 @@ app.get('/api/blocked-ips', cors(corsOptions), async (req, res) => {
     const isWin = process.platform === 'win32';
     const cmd = isWin 
       ? 'netsh advfirewall firewall show rule name=all | findstr /i "Block"'
-      : 'sudo iptables -S INPUT'; // Cannot pipe easily in exec without shell, but execAsync runs in shell anyway
+      : 'sudo -n iptables -S INPUT'; // Cannot pipe easily in exec without shell, but execAsync runs in shell anyway
 
     const { stdout } = await execAsync(cmd).catch(err => {
       // It's normal for iptables to return empty or error if no privileges, we just return empty
@@ -516,6 +517,45 @@ app.get('/api/blocked-ips', cors(corsOptions), async (req, res) => {
   } catch (err) {
     console.error('[Firewall] Get blocked IPs error:', err.message);
     res.status(500).json({ success: false, error: 'Failed to retrieve blocked IPs.' });
+  }
+});
+
+/**
+ * GET /api/system-metrics
+ * Returns CPU, RAM, Disk, and OS metrics
+ */
+app.get('/api/system-metrics', cors(corsOptions), async (req, res) => {
+  try {
+    const [cpuLoad, mem, fsSize, osInfo] = await Promise.all([
+      si.currentLoad(),
+      si.mem(),
+      si.fsSize(),
+      si.osInfo()
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        cpu: {
+          load: cpuLoad.currentLoad,
+        },
+        mem: {
+          total: mem.total,
+          used: mem.used,
+          free: mem.free,
+          active: mem.active
+        },
+        disk: fsSize,
+        os: {
+          platform: osInfo.platform,
+          distro: osInfo.distro,
+          uptime: si.time().uptime
+        }
+      }
+    });
+  } catch (err) {
+    console.error('[System] Error fetching metrics:', err.message);
+    res.status(500).json({ success: false, error: 'Failed to fetch system metrics.' });
   }
 });
 

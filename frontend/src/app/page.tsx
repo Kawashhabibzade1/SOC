@@ -13,6 +13,7 @@ import ActiveSessions from '@/components/ActiveSessions';
 import Sidebar from '@/components/Sidebar';
 import OpenPortsTable from '@/components/OpenPortsTable';
 import BlockedIpsTable from '@/components/BlockedIpsTable';
+import SystemMetrics from '@/components/SystemMetrics';
 
 // ── Dynamic import — react-globe.gl is NOT SSR-compatible ──────────────────
 const GlobeRadar = dynamic(() => import('@/components/GlobeRadar'), {
@@ -92,6 +93,12 @@ export default function DashboardPage() {
         return (
           <div className="h-full w-full glass-panel rounded-xl overflow-hidden min-h-[500px]">
             <GlobeRadar events={events} latestEvent={latestEvent} />
+          </div>
+        );
+      case 'system':
+        return (
+          <div className="h-full w-full min-h-[500px]">
+            <SystemMetrics />
           </div>
         );
       case 'ports':
