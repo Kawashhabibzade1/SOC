@@ -635,6 +635,56 @@ app.get('/api/open-ports', cors(corsOptions), async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+// SAMBA ENDPOINTS
+// ─────────────────────────────────────────────
+
+/**
+ * GET /api/samba/shares
+ * Parses /etc/samba/smb.conf and returns all shares and their valid users
+ */
+app.get('/api/samba/shares', cors(corsOptions), async (req, res) => {
+  try {
+    const smbConf = await fs.readFile('/etc/samba/smb.conf', 'utf-8');
+    const lines = smbConf.split('\n');
+    
+    const shares = [];
+    let currentShare = null;
+    
+    for (let line of lines) {
+      line = line.trim();
+      if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+      
+      // Match section [ShareName]
+      const sectionMatch = line.match(/^\[(.*)\]$/);
+      if (sectionMatch) {
+        const name = sectionMatch[1];
+        if (name !== 'global' && name !== 'printers' && name !== 'print$') {
+          currentShare = { name, path: '', users: [] };
+          shares.push(currentShare);
+        } else {
+          currentShare = null;
+        }
+        continue;
+      }
+      
+      if (currentShare) {
+        if (line.startsWith('path =')) {
+          currentShare.path = line.split('=')[1].trim();
+        } else if (line.startsWith('valid users =')) {
+          const usersStr = line.split('=')[1].trim();
+          currentShare.users = usersStr.split(',').map(u => u.trim());
+        }
+      }
+    }
+    
+    res.json({ success: true, data: shares });
+  } catch (err) {
+    console.error('[Samba] Parse error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
 // FILE EXPLORER ENDPOINTS
 // ─────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Globe2, Network, Shield, Menu, X, Activity } from 'lucide-react';
+import { LayoutDashboard, Globe2, Network, Shield, Menu, X, Activity, FolderOpen } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -9,10 +9,10 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarProps) {
-  const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'radar', label: 'Globe Radar', icon: Globe2 },
     { id: 'system', label: 'System Metrics', icon: Activity },
+    { id: 'explorer', label: 'File Explorer', icon: FolderOpen },
     { id: 'ports', label: 'Open Ports', icon: Network },
     { id: 'blocked_ips', label: 'Blocked IPs', icon: Shield },
   ];

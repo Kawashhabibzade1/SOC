@@ -14,6 +14,7 @@ import Sidebar from '@/components/Sidebar';
 import OpenPortsTable from '@/components/OpenPortsTable';
 import BlockedIpsTable from '@/components/BlockedIpsTable';
 import SystemMetrics from '@/components/SystemMetrics';
+import FileExplorer from '@/components/FileExplorer';
 
 // ── Dynamic import — react-globe.gl is NOT SSR-compatible ──────────────────
 const GlobeRadar = dynamic(() => import('@/components/GlobeRadar'), {
@@ -42,6 +43,7 @@ export default function DashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const { events, activeSessions, isConnected, latestEvent, stats } = useSocData();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [explorerPath, setExplorerPath] = useState('SAMBA');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -98,7 +100,18 @@ export default function DashboardPage() {
       case 'system':
         return (
           <div className="h-full w-full min-h-[500px]">
-            <SystemMetrics />
+            <SystemMetrics 
+              onNavigateToExplorer={(path) => {
+                setExplorerPath(path);
+                setActiveTab('explorer');
+              }}
+            />
+          </div>
+        );
+      case 'explorer':
+        return (
+          <div className="h-full w-full min-h-[500px]">
+            <FileExplorer initialPath={explorerPath} />
           </div>
         );
       case 'ports':

@@ -6,9 +6,11 @@ interface SystemData {
   mem: { total: number; used: number; free: number; active: number };
   disk: Array<{ fs: string; type: string; size: number; used: number; available: number; use: number; mount: string }>;
   os: { platform: string; distro: string; uptime: number };
+interface SystemMetricsProps {
+  onNavigateToExplorer?: (path: string) => void;
 }
 
-export default function SystemMetrics() {
+export default function SystemMetrics({ onNavigateToExplorer }: SystemMetricsProps) {
   const [data, setData] = useState<SystemData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -178,7 +180,11 @@ export default function SystemMetrics() {
 
         {/* Disk Panels */}
         {disksToShow.filter(Boolean).map((disk, idx) => (
-          <div key={`disk-${idx}`} className="glass-panel rounded-xl p-6 relative overflow-hidden group">
+          <div 
+            key={`disk-${idx}`} 
+            className={`glass-panel rounded-xl p-6 relative overflow-hidden group ${onNavigateToExplorer ? 'cursor-pointer hover:bg-slate-800/30' : ''}`}
+            onClick={() => onNavigateToExplorer && onNavigateToExplorer(disk.mount)}
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="flex items-start justify-between mb-8 relative z-10">
               <div className="flex items-center gap-3">
