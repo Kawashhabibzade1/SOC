@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Wifi, WifiOff, Activity, LogOut, Settings, Loader2, CircleCheckBig, Smartphone } from 'lucide-react';
+import { Shield, Wifi, WifiOff, Activity, LogOut, Settings, CircleCheckBig } from 'lucide-react';
 
 interface NavbarProps {
   isConnected : boolean;
@@ -14,12 +14,6 @@ export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
   const [time, setTime] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [setupDone, setSetupDone] = useState(false);
-  const [qrLoading, setQrLoading] = useState(false);
-  const [qrError, setQrError] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [qrData, setQrData] = useState<{ secret: string; qrDataUrl: string } | null>(null);
-
-  const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
 
   useEffect(() => {
     const tick = () =>
@@ -34,24 +28,6 @@ export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
       setSetupDone(localStorage.getItem('soc_2fa_setup_done') === 'true');
     }
     setShowSettings(true);
-  };
-
-  const fetchQr = async () => {
-    setQrLoading(true);
-    setQrError('');
-    try {
-      const res = await fetch(`${GATEWAY_URL}/api/auth/qr`);
-      const data = await res.json();
-      if (!res.ok || !data.success || !data.secret || !data.qrDataUrl) {
-        throw new Error(data.error || 'Failed to load QR setup.');
-      }
-      setQrData({ secret: data.secret, qrDataUrl: data.qrDataUrl });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load QR setup.';
-      setQrError(message);
-    } finally {
-      setQrLoading(false);
-    }
   };
 
   const markSetupDone = () => {
@@ -200,62 +176,16 @@ export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
               </div>
             ) : (
               <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-                <div className="flex items-start gap-2 text-cyan-200 mb-3">
-                  <Smartphone className="w-5 h-5 mt-0.5" />
-                  <p className="text-sm">
-                    Set up Microsoft Authenticator once, then mark it complete.
-                  </p>
-                </div>
-
-                {!qrData && !qrLoading && (
-                  <button
-                    type="button"
-                    onClick={fetchQr}
-                    className="w-full rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm py-2.5 transition-colors"
-                  >
-                    Show QR Setup
-                  </button>
-                )}
-
-                {qrLoading && (
-                  <Loader2 className="w-6 h-6 animate-spin text-cyan-300 mx-auto my-4" />
-                )}
-
-                {qrError && (
-                  <p className="text-xs text-red-400 text-center">{qrError}</p>
-                )}
-
-                {qrData && (
-                  <div className="mt-3 space-y-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={qrData.qrDataUrl}
-                      alt="2FA setup QR code"
-                      className="w-44 h-44 mx-auto rounded-lg bg-white p-2"
-                    />
-                    <div className="text-center">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 mb-1">Manual key</p>
-                      <code
-                        className="text-xs block font-mono text-cyan-300 bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 cursor-pointer"
-                        title="Click to copy key"
-                        onClick={() => {
-                          navigator.clipboard.writeText(qrData.secret);
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 1500);
-                        }}
-                      >
-                        {copied ? 'Copied!' : qrData.secret}
-                      </code>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={markSetupDone}
-                      className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm py-2.5 transition-colors"
-                    >
-                      I have set up Authenticator
-                    </button>
-                  </div>
-                )}
+                <p className="text-sm text-cyan-200 mb-3">
+                  Authenticator is already configured on your phone. Click confirm once to hide setup prompts on this browser.
+                </p>
+                <button
+                  type="button"
+                  onClick={markSetupDone}
+                  className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm py-2.5 transition-colors"
+                >
+                  Confirm already configured
+                </button>
               </div>
             )}
 

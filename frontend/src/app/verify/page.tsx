@@ -54,6 +54,7 @@ export default function OtpVerificationV7() {
       if (data.success) {
         setIsVerified(true);
         localStorage.setItem('soc_auth', 'true');
+        localStorage.setItem('soc_2fa_setup_done', 'true');
         setTimeout(() => {
           router.push('/');
         }, 1500);
