@@ -282,8 +282,75 @@ function parseLine(line) {
 // ─────────────────────────────────────────────
 // 5. GEOIP MODULE
 // ─────────────────────────────────────────────
+let tailscaleNodes = {};
+let serverGeo = { latitude: 51.1657, longitude: 10.4515, country: 'DE', city: 'Heimserver' };
+
+// Get server's actual public IP on startup to anchor Tailscale nodes
+const https = require('https');
+https.get('https://api.ipify.org', (res) => {
+  let data = '';
+  res.on('data', chunk => data += chunk);
+  res.on('end', () => {
+    const geo = geoip.lookup(data.trim());
+    if (geo && geo.ll) {
+      serverGeo.latitude = geo.ll[0];
+      serverGeo.longitude = geo.ll[1];
+      serverGeo.country = geo.country;
+      serverGeo.city = geo.city || 'Heimserver';
+    }
+  });
+}).on('error', () => {});
+
+async function updateTailscaleMap() {
+  const { exec } = require('child_process');
+  exec('tailscale status --json', (err, stdout) => {
+    if (!err && stdout) {
+      try {
+        const status = JSON.parse(stdout);
+        let newNodes = {};
+        for (const key in status.Peer) {
+          const peer = status.Peer[key];
+          for (const ip of peer.TailscaleIPs || []) {
+            newNodes[ip] = peer.HostName || peer.DNSName?.split('.')[0] || 'Tailscale Device';
+          }
+        }
+        // Include self as well
+        if (status.Self) {
+          for (const ip of status.Self.TailscaleIPs || []) {
+            newNodes[ip] = status.Self.HostName || 'Heimserver';
+          }
+        }
+        tailscaleNodes = newNodes;
+      } catch (e) {
+        console.error('[Tailscale] Failed to parse JSON:', e.message);
+      }
+    }
+  });
+}
+setInterval(updateTailscaleMap, 60000);
+updateTailscaleMap();
+
 function enrichWithGeo(event) {
-  const geo = geoip.lookup(event.ip_address);
+  let ip = event.ip_address;
+  if (ip && ip.startsWith('::ffff:')) {
+    ip = ip.replace('::ffff:', '');
+  }
+
+  // 1. Check if it's a Tailscale device
+  if (ip && tailscaleNodes[ip]) {
+    // Add deterministic slight offset so multiple devices don't perfectly overlap on the globe
+    const offset = (parseInt(ip.split('.')[3]) || 0) * 0.05;
+    return {
+      ...event,
+      country  : 'Tailscale',
+      city     : tailscaleNodes[ip],
+      latitude : serverGeo.latitude + offset,
+      longitude: serverGeo.longitude + offset,
+    };
+  }
+
+  // 2. Regular GeoIP lookup
+  const geo = geoip.lookup(ip);
   if (!geo) {
     return { ...event, country: null, city: null, latitude: null, longitude: null };
   }
