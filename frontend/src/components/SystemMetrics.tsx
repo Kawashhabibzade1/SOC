@@ -8,11 +8,7 @@ interface SystemData {
   os: { platform: string; distro: string; uptime: number };
 }
 
-interface SystemMetricsProps {
-  onNavigateToExplorer?: (path: string) => void;
-}
-
-export default function SystemMetrics({ onNavigateToExplorer }: SystemMetricsProps) {
+export default function SystemMetrics() {
   const [data, setData] = useState<SystemData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -201,8 +197,7 @@ export default function SystemMetrics({ onNavigateToExplorer }: SystemMetricsPro
         {disksToShow.filter(Boolean).map((disk, idx) => (
           <div 
             key={`disk-${idx}`} 
-            className={`glass-panel rounded-xl p-6 relative overflow-hidden group ${onNavigateToExplorer ? 'cursor-pointer hover:bg-slate-800/30' : ''}`}
-            onClick={() => onNavigateToExplorer && onNavigateToExplorer(disk.mount)}
+            className="glass-panel rounded-xl p-6 relative overflow-hidden group"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="flex items-start justify-between mb-8 relative z-10">

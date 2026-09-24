@@ -100,12 +100,7 @@ export default function DashboardPage() {
       case 'system':
         return (
           <div className="h-full w-full min-h-[500px]">
-            <SystemMetrics 
-              onNavigateToExplorer={(path) => {
-                setExplorerPath(path);
-                setActiveTab('explorer');
-              }}
-            />
+            <SystemMetrics />
           </div>
         );
       case 'explorer':
