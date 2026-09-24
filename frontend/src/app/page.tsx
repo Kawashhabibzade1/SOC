@@ -44,7 +44,6 @@ export default function DashboardPage() {
   const { events, activeSessions, isConnected, latestEvent, stats } = useSocData();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [explorerPath, setExplorerPath] = useState('SAMBA');
-  const [explorerSkipAuth, setExplorerSkipAuth] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -104,7 +103,6 @@ export default function DashboardPage() {
             <SystemMetrics 
               onNavigateToExplorer={(path) => {
                 setExplorerPath(path);
-                setExplorerSkipAuth(true);
                 setActiveTab('explorer');
               }}
             />
@@ -113,7 +111,7 @@ export default function DashboardPage() {
       case 'explorer':
         return (
           <div className="h-full w-full min-h-[500px]">
-            <FileExplorer initialPath={explorerPath} skipAuth={explorerSkipAuth} />
+            <FileExplorer initialPath={explorerPath} />
           </div>
         );
       case 'ports':
