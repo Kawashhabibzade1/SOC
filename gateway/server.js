@@ -353,6 +353,55 @@ app.post('/api/auth/login', cors(corsOptions), (req, res) => {
 });
 
 /**
+ * POST /api/auth/change-password
+ * Changes the admin password. Requires the current password for verification.
+ * Updates both in-memory config and the .env file on disk.
+ */
+app.post('/api/auth/change-password', cors(corsOptions), async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ success: false, error: 'Current and new password required.' });
+  }
+
+  // Verify current password
+  if (currentPassword !== config.auth.password) {
+    return res.status(401).json({ success: false, error: 'Current password is incorrect.' });
+  }
+
+  // Validate new password length
+  if (newPassword.length < 6) {
+    return res.status(400).json({ success: false, error: 'New password must be at least 6 characters.' });
+  }
+
+  if (newPassword === currentPassword) {
+    return res.status(400).json({ success: false, error: 'New password must be different from the current one.' });
+  }
+
+  try {
+    // Update in-memory config
+    config.auth.password = newPassword;
+
+    // Persist to .env file
+    const envPath = path.resolve(__dirname, '.env');
+    if (await fs.pathExists(envPath)) {
+      let envContent = await fs.readFile(envPath, 'utf-8');
+      if (envContent.match(/^ADMIN_PASSWORD=.*/m)) {
+        envContent = envContent.replace(/^ADMIN_PASSWORD=.*/m, `ADMIN_PASSWORD=${newPassword}`);
+      } else {
+        envContent += `\nADMIN_PASSWORD=${newPassword}\n`;
+      }
+      await fs.writeFile(envPath, envContent, 'utf-8');
+    }
+
+    console.log(`[Auth] Admin password changed successfully at ${new Date().toISOString()}`);
+    return res.json({ success: true, message: 'Password changed successfully.' });
+  } catch (err) {
+    console.error('[Auth] Failed to change password:', err.message);
+    return res.status(500).json({ success: false, error: 'Failed to save new password.' });
+  }
+});
+
+/**
  * POST /api/auth/verify
  * Verifies the 6-digit TOTP code against the secret key.
  */
@@ -529,15 +578,16 @@ app.get('/api/blocked-ips', cors(corsOptions), async (req, res) => {
 
 /**
  * GET /api/system-metrics
- * Returns CPU, RAM, Disk, and OS metrics
+ * Returns CPU, RAM, Disk, OS metrics + CPU temperature
  */
 app.get('/api/system-metrics', cors(corsOptions), async (req, res) => {
   try {
-    const [cpuLoad, mem, fsSize, osInfo] = await Promise.all([
+    const [cpuLoad, mem, fsSize, osInfo, cpuTemp] = await Promise.all([
       si.currentLoad(),
       si.mem(),
       si.fsSize(),
-      si.osInfo()
+      si.osInfo(),
+      si.cpuTemperature().catch(() => ({ main: null, cores: [], max: null }))
     ]);
     
     res.json({
@@ -545,6 +595,8 @@ app.get('/api/system-metrics', cors(corsOptions), async (req, res) => {
       data: {
         cpu: {
           load: cpuLoad.currentLoad,
+          temperature: cpuTemp.main || cpuTemp.max || null,
+          temperatureCores: cpuTemp.cores || [],
         },
         mem: {
           total: mem.total,
@@ -568,52 +620,101 @@ app.get('/api/system-metrics', cors(corsOptions), async (req, res) => {
 
 /**
  * GET /api/open-ports
- * Returns a list of currently listening TCP/UDP ports on the server.
+ * Returns listening ports with process/docker/app info.
  */
+const PORT_APP_MAP = {
+  22: { name: 'SSH / SFTP', icon: 'terminal', color: 'cyan' },
+  80: { name: 'HTTP', icon: 'globe', color: 'blue' },
+  443: { name: 'HTTPS', icon: 'lock', color: 'green' },
+  3001: { name: 'SOC Gateway', icon: 'shield', color: 'purple' },
+  3000: { name: 'SOC Frontend', icon: 'monitor', color: 'purple' },
+  3306: { name: 'MariaDB', icon: 'database', color: 'orange' },
+  3389: { name: 'XRDP (Remote Desktop)', icon: 'monitor', color: 'blue' },
+  445: { name: 'Samba (SMB)', icon: 'folder', color: 'yellow' },
+  139: { name: 'Samba (NetBIOS)', icon: 'folder', color: 'yellow' },
+  8080: { name: 'Nextcloud', icon: 'cloud', color: 'blue' },
+  8081: { name: 'Nextcloud (Alt)', icon: 'cloud', color: 'blue' },
+  32400: { name: 'Plex Media Server', icon: 'film', color: 'yellow' },
+  21: { name: 'FTP', icon: 'upload', color: 'orange' },
+  25: { name: 'SMTP', icon: 'mail', color: 'red' },
+  53: { name: 'DNS', icon: 'search', color: 'gray' },
+};
+
 app.get('/api/open-ports', cors(corsOptions), async (req, res) => {
   try {
-    const isWin = process.platform === 'win32';
-    const cmd = isWin ? 'netstat -ano | findstr LISTENING' : 'ss -lntu';
+    // Get listening ports with process info (may need root for full process info)
+    const { stdout: ssOut } = await execAsync('ss -lntup').catch(() => ({ stdout: '' }));
+    // Get Docker container port mappings
+    const { stdout: dockerOut } = await execAsync("docker ps --format '{{.Names}}|{{.Ports}}|{{.Image}}'").catch(() => ({ stdout: '' }));
     
-    const { stdout } = await execAsync(cmd);
-    const lines = stdout.split('\n');
+    // Build a map of port -> docker container
+    const dockerPortMap = {};
+    dockerOut.split('\n').forEach(line => {
+      if (!line.trim()) return;
+      const [name, ports, image] = line.split('|');
+      if (!ports) return;
+      // Parse port mappings like "0.0.0.0:8080->80/tcp"
+      const portMatches = ports.matchAll(/(\d+\.\d+\.\d+\.\d+|0\.0\.0\.0)?:(\d+)->(\d+)\/(\w+)/g);
+      for (const m of portMatches) {
+        const hostPort = parseInt(m[2], 10);
+        dockerPortMap[hostPort] = { docker: name, image: image?.split(':')[0]?.split('/')?.pop() || name };
+      }
+    });
+    
+    const lines = ssOut.split('\n');
     const ports = [];
 
     lines.forEach(line => {
-      if (!line.trim()) return;
-      if (isWin) {
-        const parts = line.trim().split(/\s+/);
-        if (parts.length >= 4) {
-          const proto = parts[0].toLowerCase();
-          const localAddress = parts[1];
-          const localPortMatch = localAddress.match(/:(\d+)$/);
-          if (localPortMatch) {
-            ports.push({
-              protocol: proto,
-              port: parseInt(localPortMatch[1], 10),
-              address: localAddress.replace(/:(\d+)$/, ''),
-              state: 'LISTENING',
-              process: parts[parts.length - 1]
-            });
-          }
-        }
+      if (!line.trim() || line.startsWith('Netid')) return;
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 5) return;
+      
+      const proto = parts[0].toLowerCase();
+      const localAddress = parts[4];
+      const localPortMatch = localAddress.match(/:(\d+)$/);
+      if (!localPortMatch) return;
+      
+      const portNum = parseInt(localPortMatch[1], 10);
+      const address = localAddress.replace(/:(\d+)$/, '');
+      
+      // Extract process name from last column if present (ss -lntup with root)
+      let processName = null;
+      const processMatch = line.match(/users:\(\("([^"]+)"/);
+      if (processMatch) processName = processMatch[1];
+      
+      // Look up app name
+      const appInfo = PORT_APP_MAP[portNum];
+      const dockerInfo = dockerPortMap[portNum];
+      
+      let appName = processName;
+      let appType = 'process';
+      let appColor = 'slate';
+      
+      if (dockerInfo) {
+        appName = `${dockerInfo.docker} (Docker)`;
+        appType = 'docker';
+        appColor = 'blue';
+      } else if (appInfo) {
+        appName = appInfo.name;
+        appType = appInfo.icon;
+        appColor = appInfo.color;
+      } else if (processName) {
+        appName = processName;
       } else {
-        const parts = line.trim().split(/\s+/);
-        if (parts.length >= 5 && parts[0] !== 'Netid') {
-          const proto = parts[0].toLowerCase();
-          const localAddress = parts[4];
-          const localPortMatch = localAddress.match(/:(\d+)$/);
-          if (localPortMatch) {
-            ports.push({
-              protocol: proto,
-              port: parseInt(localPortMatch[1], 10),
-              address: localAddress.replace(/:(\d+)$/, ''),
-              state: 'LISTENING',
-              process: 'N/A' // ss requires root for process info usually
-            });
-          }
-        }
+        appName = 'Unknown';
       }
+      
+      ports.push({
+        protocol: proto,
+        port: portNum,
+        address,
+        state: 'LISTENING',
+        process: appName,
+        appType,
+        appColor,
+        isDocker: !!dockerInfo,
+        dockerName: dockerInfo?.docker || null,
+      });
     });
 
     // Deduplicate by port and protocol
@@ -626,6 +727,9 @@ app.get('/api/open-ports', cors(corsOptions), async (req, res) => {
         uniquePorts.push(p);
       }
     });
+
+    // Sort by port number ascending
+    uniquePorts.sort((a, b) => a.port - b.port);
 
     res.json({ success: true, data: uniquePorts });
   } catch (err) {

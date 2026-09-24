@@ -7,6 +7,7 @@ import {
 
 interface FileExplorerProps {
   initialPath: string;
+  skipAuth?: boolean;
 }
 
 interface FSItem {
@@ -18,7 +19,7 @@ interface FSItem {
   error?: boolean;
 }
 
-export default function FileExplorer({ initialPath }: FileExplorerProps) {
+export default function FileExplorer({ initialPath, skipAuth = false }: FileExplorerProps) {
   const [currentPath, setCurrentPath] = useState(initialPath || 'SAMBA');
   const [items, setItems] = useState<FSItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -363,13 +364,14 @@ export default function FileExplorer({ initialPath }: FileExplorerProps) {
                   {sambaUsers.map(user => (
                     <button 
                       key={user}
-                      onClick={() => setAuthModalUser(user)}
+                      onClick={() => skipAuth ? navigateTo(`SAMBA:${user}`) : setAuthModalUser(user)}
                       className="px-6 py-4 bg-slate-800/80 hover:bg-cyber-cyan/20 border border-slate-700 hover:border-cyber-cyan/50 rounded-xl flex flex-col items-center gap-3 transition-all min-w-[150px]"
                     >
                       <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400 border border-blue-500/30">
                         {user.charAt(0).toUpperCase()}
                       </div>
                       <span className="font-mono text-sm font-bold text-slate-300">{user}</span>
+                      {skipAuth && <span className="text-[9px] font-mono text-green-400 uppercase tracking-widest">Quick Access</span>}
                     </button>
                   ))}
                 </div>

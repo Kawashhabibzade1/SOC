@@ -179,6 +179,20 @@ const PATTERNS = [
     extract    : (m) => ({ ip_address: m[1], targeted_user: null }),
   },
   // ── XRDP (/var/log/xrdp-sesman.log) ─────────────────────────────────────
+  // New format: [INFO ] AUTHFAIL: user=hacked ip=::ffff:100.119.82.94 time=...
+  {
+    event_type : 'XRDP_FAILED',
+    regex      : /AUTHFAIL: user=(\S+)\s+ip=(?:::ffff:)?([\d.]+)/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  // New format: [INFO ] Access permitted for user: kawash
+  // Combined with IP from: Received system login request from xrdp for user: kawash IP: ::ffff:100.119.82.94
+  {
+    event_type : 'XRDP_SUCCESS',
+    regex      : /Received system login request from xrdp for user:\s+(\S+)\s+IP:\s+(?:::ffff:)?([\d.]+)/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  // Legacy XRDP patterns (keep as fallback)
   {
     event_type : 'XRDP_SUCCESS',
     regex      : /sesman_auth.*auth\s+valid.*user\s+(\S+)\s+from\s+ip\s+([\d.]+)/i,
@@ -193,12 +207,6 @@ const PATTERNS = [
     event_type : 'XRDP_FAILED',
     regex      : /sesman_auth.*auth(?:fail| not valid).*?user\s+(\S+)\s+from\s+ip\s+([\d.]+)/i,
     extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
-  },
-  // Fallback XRDP pattern (no username in log)
-  {
-    event_type : 'XRDP_FAILED',
-    regex      : /(?:xrdp|sesman).*(?:auth|login)\s+fail.*?([\d]{1,3}(?:\.[\d]{1,3}){3})/i,
-    extract    : (m) => ({ targeted_user: null, ip_address: m[1] }),
   },
   // ── FTP (vsftpd: /var/log/vsftpd.log) ────────────────────────────────────
   {
@@ -330,56 +338,35 @@ function startFileWatcher(filePath, label) {
 }
 
 function startCollector() {
-  // ── Primary SSH / auth log ───────────────────────────────────────────────
-  if (config.logSource === 'auth') {
-    console.log('[Collector] Starting: tail -f /var/log/auth.log');
-    const child = spawn('tail', ['-f', '-n', '0', '/var/log/auth.log']);
-    const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
-    rl.on('line', async (line) => {
-      if (!line.trim()) return;
-      const parsed = parseLine(line);
-      if (!parsed) return;
-      const enriched = enrichWithGeo(parsed);
-      await insertEvent(enriched);
-    });
-    child.stderr.on('data', (data) => {
-      const msg = data.toString().trim();
-      if (msg) console.warn(`[Collector] stderr: ${msg}`);
-    });
-    child.on('close', (code) => {
-      console.warn(`[Collector] Process exited (code ${code}). Restarting in 5s...`);
-      setTimeout(startCollector, 5000);
-    });
-    child.on('error', (err) => {
-      console.error(`[Collector] Failed to start: ${err.message}`);
-      setTimeout(startCollector, 10000);
-    });
-  } else {
-    console.log('[Collector] Starting: journalctl -u ssh -f');
-    const child = spawn('journalctl', ['-u', 'ssh', '-f', '-n', '0', '--output=cat']);
-    const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
-    rl.on('line', async (line) => {
-      if (!line.trim()) return;
-      const parsed = parseLine(line);
-      if (!parsed) return;
-      const enriched = enrichWithGeo(parsed);
-      await insertEvent(enriched);
-    });
-    child.stderr.on('data', (data) => {
-      const msg = data.toString().trim();
-      if (msg) console.warn(`[Collector] stderr: ${msg}`);
-    });
-    child.on('close', (code) => {
-      console.warn(`[Collector] Process exited (code ${code}). Restarting in 5s...`);
-      setTimeout(startCollector, 5000);
-    });
-    child.on('error', (err) => {
-      console.error(`[Collector] Failed to start: ${err.message}`);
-      setTimeout(startCollector, 10000);
-    });
-  }
+  // ── Primary: journalctl -u ssh (covers SSH_FAILED, SSH_SUCCESS) ───────────
+  console.log('[Collector] Starting: journalctl -u ssh -f');
+  const child = spawn('journalctl', ['-u', 'ssh', '-f', '-n', '0', '--output=cat']);
+  const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
+  rl.on('line', async (line) => {
+    if (!line.trim()) return;
+    const parsed = parseLine(line);
+    if (!parsed) return;
+    const enriched = enrichWithGeo(parsed);
+    await insertEvent(enriched);
+  });
+  child.stderr.on('data', (data) => {
+    const msg = data.toString().trim();
+    if (msg) console.warn(`[SSH-Journalctl] stderr: ${msg}`);
+  });
+  child.on('close', (code) => {
+    console.warn(`[SSH-Journalctl] Process exited (code ${code}). Restarting in 5s...`);
+    setTimeout(startCollector, 5000);
+  });
+  child.on('error', (err) => {
+    console.error(`[SSH-Journalctl] Failed to start: ${err.message}`);
+    setTimeout(startCollector, 10000);
+  });
 
-  // ── Extra log sources (XRDP, FTP/SFTP) ───────────────────────────────────
+  // ── Fallback: tail /var/log/auth.log for SSH_FAILED from all sources ──────
+  // This catches failed logins from IPs that journalctl might miss
+  startFileWatcher('/var/log/auth.log', 'SSH-AuthLog');
+
+  // ── Extra log sources (XRDP, FTP/SFTP, SMB) ───────────────────────────────
   startFileWatcher('/var/log/xrdp-sesman.log', 'XRDP');
   startFileWatcher('/var/log/vsftpd.log',      'FTP');
   startFileWatcher('/var/log/proftpd/proftpd.log', 'ProFTPD');

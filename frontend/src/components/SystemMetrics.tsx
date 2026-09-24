@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Activity, Cpu, HardDrive, MemoryStick, Server, Clock } from 'lucide-react';
 
 interface SystemData {
-  cpu: { load: number };
+  cpu: { load: number; temperature: number | null; temperatureCores: number[] };
   mem: { total: number; used: number; free: number; active: number };
   disk: Array<{ fs: string; type: string; size: number; used: number; available: number; use: number; mount: string }>;
   os: { platform: string; distro: string; uptime: number };
@@ -139,7 +139,7 @@ export default function SystemMetrics({ onNavigateToExplorer }: SystemMetricsPro
         {/* CPU Panel */}
         <div className="glass-panel rounded-xl p-6 relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-cyber-cyan/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          <div className="flex items-start justify-between mb-8 relative z-10">
+          <div className="flex items-start justify-between mb-4 relative z-10">
             <div className="flex items-center gap-3">
               <Cpu className="w-5 h-5 text-slate-400" />
               <span className="font-orbitron tracking-widest text-sm text-slate-200">CPU LOAD</span>
@@ -148,12 +148,29 @@ export default function SystemMetrics({ onNavigateToExplorer }: SystemMetricsPro
               {data.cpu.load.toFixed(1)}%
             </span>
           </div>
-          <div className="relative h-4 bg-slate-800/50 rounded-full overflow-hidden border border-slate-700/50 z-10">
+          <div className="relative h-4 bg-slate-800/50 rounded-full overflow-hidden border border-slate-700/50 z-10 mb-4">
             <div 
               className={`absolute top-0 left-0 h-full transition-all duration-1000 ease-out ${getProgressColor(data.cpu.load)}`}
               style={{ width: `${Math.min(100, Math.max(0, data.cpu.load))}%` }}
             />
           </div>
+          {/* Temperature */}
+          {data.cpu.temperature !== null && data.cpu.temperature !== undefined ? (
+            <div className="flex items-center justify-between mt-2 z-10 relative">
+              <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">Temperature</span>
+              <span className={`font-mono text-sm font-bold ${
+                data.cpu.temperature < 50 ? 'text-cyber-green' :
+                data.cpu.temperature < 75 ? 'text-yellow-400' : 'text-red-400'
+              }`}>
+                🌡️ {data.cpu.temperature.toFixed(1)}°C
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between mt-2 z-10 relative">
+              <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">Temperature</span>
+              <span className="font-mono text-xs text-slate-600">N/A</span>
+            </div>
+          )}
         </div>
 
         {/* RAM Panel */}
