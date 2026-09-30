@@ -1,14 +1,20 @@
 # ─────────────────────────────────────────────
-# SOC Radar - Phase 2 Gateway
+# SOC Radar - Phase 2 Gateway + nginx HTTPS proxy
 # docker-compose.yml
 #
 # IMPORTANT — Before running:
-# 1. Find the name of your existing Nextcloud/MariaDB Docker network:
-#      docker inspect nextcloud-db --format '{{json .NetworkSettings.Networks}}'
-#    Copy the network name and set it as MARIADB_NETWORK below (default: nextcloud_default).
+# 1. Get your Tailscale TLS certificate on the host:
+#      sudo tailscale cert heimserver.tail2ad9cd.ts.net
+#    This creates two files (default location: current directory or /etc/tailscale/):
+#      heimserver.tail2ad9cd.ts.net.crt
+#      heimserver.tail2ad9cd.ts.net.key
+#    Copy them to:
+#      /opt/soc/certs/heimserver.tail2ad9cd.ts.net.crt
+#      /opt/soc/certs/heimserver.tail2ad9cd.ts.net.key
 #
-# 2. Ensure MariaDB port 3306 is NOT publicly exposed on the host.
-#    The gateway reaches it via the shared Docker network, not via the host.
+# 2. Find the name of your existing MariaDB Docker network:
+#      docker inspect nextcloud-db --format '{{json .NetworkSettings.Networks}}'
+#    Set MARIADB_NETWORK if different from 'nextcloud_default'.
 #
 # 3. Run:
 #      docker compose up -d --build
@@ -16,21 +22,45 @@
 
 services:
 
+  # ── nginx: TLS termination + reverse proxy ───────────────────────────────
+  soc-nginx:
+    image: nginx:1.27-alpine
+    container_name: soc-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"       # HTTP  → redirects to HTTPS
+      - "443:443"     # HTTPS → proxied to soc-gateway:3001
+    volumes:
+      # nginx config (read-only)
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # Tailscale TLS certificates from host (read-only)
+      - /opt/soc/certs:/etc/nginx/certs:ro
+    networks:
+      - soc-internal
+    depends_on:
+      - soc-gateway
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── soc-gateway: Node.js REST + Socket.io ───────────────────────────────
   soc-gateway:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: soc-gateway
     restart: unless-stopped
-    ports:
-      # Expose the gateway on the host so the Phase 1 collector and browser can reach it
-      - "3001:3001"
+    # Port 3001 is no longer exposed to the host — only reachable via nginx
+    expose:
+      - "3001"
     env_file:
       - .env
     networks:
       # 1. Join the existing MariaDB network so we can reach 'nextcloud-db' by hostname
       - mariadb-net
-      # 2. Internal SOC network (for future services like the Next.js frontend in Docker)
+      # 2. Internal SOC network (shared with nginx)
       - soc-internal
     depends_on:
       nextcloud-db:
@@ -42,11 +72,10 @@ services:
         max-file: "3"
 
   # ── Reference to the EXISTING MariaDB container ──────────────────────────
-  # We declare it here only so 'depends_on' and the healthcheck work.
-  # Docker Compose will NOT recreate it (external: true on the network prevents conflicts).
+  # Declared here only so 'depends_on' and the healthcheck work.
   nextcloud-db:
-    image: mariadb:10.11          # matches your running container
-    container_name: nextcloud-db  # must match the actual running container name
+    image: mariadb:10.11
+    container_name: nextcloud-db
     external_links:
       - nextcloud-db
     networks:
@@ -64,13 +93,11 @@ services:
 networks:
 
   # The network your existing nextcloud-db container is already attached to.
-  # Run: docker inspect nextcloud-db --format '{{json .NetworkSettings.Networks}}'
-  # Replace 'nextcloud_default' with the actual network name if different.
   mariadb-net:
     external: true
     name: nextcloud_default       # ← CHANGE THIS if your network name differs
 
-  # Isolated internal network for SOC services
+  # Isolated internal network for SOC services (nginx ↔ gateway)
   soc-internal:
     driver: bridge
     name: soc-internal

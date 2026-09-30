@@ -23,7 +23,8 @@ const { Server} = require('socket.io');
 const cors      = require('cors');
 const helmet    = require('helmet');
 const mysql     = require('mysql2/promise');
-const { verifySync, generateURI } = require('otplib');
+const { authenticator, totp } = require('otplib');
+const generateURI = (opts) => authenticator.keyuri(opts.label, opts.issuer, opts.secret);
 const qrcode    = require('qrcode');
 const { exec, spawn }  = require('child_process');
 const util      = require('util');
@@ -422,13 +423,11 @@ app.post('/api/auth/verify', (req, res) => {
 
   for (const secret of secrets) {
     try {
-      const result = verifySync({
-        token: rawToken,
-        secret,
-        epochTolerance: 120, // Tolerate +/- 2 minutes of clock drift
-      });
-      if (result && result.valid) {
-        console.log(`[Auth] 2FA Validated successfully! (delta: ${result.delta})`);
+      // Use window of +/-2 steps (60s each) to tolerate clock drift
+      authenticator.options = { window: 2 };
+      const isValid = authenticator.verify({ token: rawToken, secret });
+      if (isValid) {
+        console.log('[Auth] 2FA Validated successfully!');
         return res.json({ success: true, message: 'Authentication successful.' });
       }
     } catch (err) {
