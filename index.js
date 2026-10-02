@@ -652,9 +652,9 @@ function updateRogueDevices() {
     lines.forEach(line => {
       const parts = line.trim().split(' ').filter(p => p);
       // Example: 192.168.0.132 dev wlp2s0 lladdr 6c:1f:f7:a2:48:60 REACHABLE
-      if (parts.length >= 5 && parts[2] === 'lladdr') {
+      if (parts.length >= 5 && parts[3] === 'lladdr') {
         const ip = parts[0];
-        const mac = parts[3];
+        const mac = parts[4];
         if (mac.includes(':') && ip.includes('.')) {
           const isTrusted = !!trustedMacs[mac]?.trusted;
           currentDevices.push({ ip, mac, trusted: isTrusted, last_seen: Date.now() });
