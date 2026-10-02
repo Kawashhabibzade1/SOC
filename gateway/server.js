@@ -985,6 +985,28 @@ app.get('/api/network/traffic', cors(corsOptions), (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+// 9. VULNERABILITY SCANNER (TRIVY)
+// ─────────────────────────────────────────────
+app.get('/api/security/cve', cors(corsOptions), (req, res) => {
+  try {
+    const raw = fs.readFileSync('/tmp/soc_cve_scan.json', 'utf8');
+    res.json({ success: true, data: JSON.parse(raw) });
+  } catch (err) {
+    res.json({ success: false, data: null });
+  }
+});
+
+app.post('/api/security/scan', cors(corsOptions), async (req, res) => {
+  try {
+    // We launch it in the background so it doesn't block
+    exec(`docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image nginx:latest -f json > /tmp/soc_cve_scan.json`);
+    res.json({ success: true, message: 'Scan started' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
 // 9. FIREWALL / PANIC BUTTON
 // ─────────────────────────────────────────────
 app.post('/api/firewall/lockdown', cors(corsOptions), (req, res) => {

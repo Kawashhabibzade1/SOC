@@ -14,6 +14,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: 
     { id: 'radar', label: 'Globe Radar', icon: Globe2 },
     { id: 'lan_monitor', label: 'LAN Monitor', icon: Network },
     { id: 'traffic', label: 'Traffic Analyzer', icon: Activity },
+    { id: 'cve_scanner', label: 'CVE Scanner', icon: Shield },
     { id: 'system', label: 'System Metrics', icon: Activity },
     { id: 'ports', label: 'Open Ports', icon: Network },
     { id: 'docker', label: 'Docker Radar', icon: LayoutDashboard },

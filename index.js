@@ -632,6 +632,7 @@ updateTailscaleStatus();
 // ─────────────────────────────────────────────
 // Rogue Device Detection (LAN Monitor)
 // ─────────────────────────────────────────────
+const path = require('path');
 const TRUSTED_MACS_FILE = path.join(__dirname, 'trusted_macs.json');
 const LAN_DEVICES_FILE = '/tmp/soc_lan_devices.json';
 

@@ -63,6 +63,7 @@ services:
       - /tmp/soc_tailscale.json:/tmp/soc_tailscale.json:ro
       - /tmp/soc_lan_devices.json:/tmp/soc_lan_devices.json:ro
       - /tmp/soc_network_traffic.json:/tmp/soc_network_traffic.json:ro
+      - /tmp/soc_cve_scan.json:/tmp/soc_cve_scan.json:ro
       - /tmp:/host_tmp
       - /var/run/docker.sock:/var/run/docker.sock
     networks:

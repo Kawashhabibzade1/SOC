@@ -18,6 +18,7 @@ import DockerRadar from '@/components/DockerRadar';
 import VpnMesh from '@/components/VpnMesh';
 import LanMonitor from '@/components/LanMonitor';
 import TrafficAnalyzer from '@/components/TrafficAnalyzer';
+import SecurityScanner from '@/components/SecurityScanner';
 // ── Dynamic import — react-globe.gl is NOT SSR-compatible ──────────────────
 const GlobeRadar = dynamic(() => import('@/components/GlobeRadar'), {
   ssr    : false,
@@ -115,6 +116,12 @@ export default function DashboardPage() {
         return (
           <div className="h-full w-full min-h-[500px]">
             <TrafficAnalyzer />
+          </div>
+        );
+      case 'cve_scanner':
+        return (
+          <div className="h-full w-full min-h-[500px]">
+            <SecurityScanner />
           </div>
         );
 
