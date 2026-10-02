@@ -16,7 +16,7 @@ export default function OtpVerificationV7() {
   const [copied, setCopied] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const GATEWAY_URL = '';
+  const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
 
   const fetchQr = async () => {
     setQrLoading(true);

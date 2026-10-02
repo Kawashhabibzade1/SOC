@@ -88,7 +88,7 @@ export default function AlertTable({ events }: Props) {
     if (!confirm(`Are you sure you want to block IP ${ip}?`)) return;
     setBlockingIp(ip);
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       const res = await fetch(`${GATEWAY_URL}/api/block-ip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -111,7 +111,7 @@ export default function AlertTable({ events }: Props) {
     if (!confirm(`Are you sure you want to unblock IP ${ip}?`)) return;
     setUnblockingIp(ip);
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       const res = await fetch(`${GATEWAY_URL}/api/unblock-ip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

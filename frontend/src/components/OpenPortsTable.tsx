@@ -54,7 +54,7 @@ export default function OpenPortsTable() {
     if (!confirm(`Are you sure you want to ${action} port ${port}?`)) return;
     setManagingPort(port);
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       const res = await fetch(`${GATEWAY_URL}/api/manage-port`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,7 +77,7 @@ export default function OpenPortsTable() {
 
   const fetchPorts = async () => {
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       const res = await fetch(`${GATEWAY_URL}/api/open-ports`);
       const data = await res.json();
       if (data.success) {

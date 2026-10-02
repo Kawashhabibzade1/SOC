@@ -48,7 +48,7 @@ export default function FileExplorer({ initialPath }: FileExplorerProps) {
     setLoading(true);
     setError('');
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       
       if (dir === 'SAMBA' || dir.startsWith('SAMBA:')) {
         const res = await fetch(`${GATEWAY_URL}/api/samba/shares`);
@@ -154,14 +154,14 @@ export default function FileExplorer({ initialPath }: FileExplorerProps) {
   };
 
   const handleDownload = (item: FSItem) => {
-    const GATEWAY_URL = '';
+    const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
     window.open(`${GATEWAY_URL}/api/fs/download?path=${encodeURIComponent(item.path)}`, '_blank');
   };
 
   const handleDelete = async (item: FSItem) => {
     if (!confirm(`Are you sure you want to delete ${item.name}?`)) return;
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       const res = await fetch(`${GATEWAY_URL}/api/fs/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,7 +185,7 @@ export default function FileExplorer({ initialPath }: FileExplorerProps) {
     formData.append('targetPath', currentPath);
 
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       const res = await fetch(`${GATEWAY_URL}/api/fs/upload`, {
         method: 'POST',
         body: formData
@@ -208,7 +208,7 @@ export default function FileExplorer({ initialPath }: FileExplorerProps) {
     const name = prompt('Enter new folder name:');
     if (!name) return;
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       const res = await fetch(`${GATEWAY_URL}/api/fs/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -227,7 +227,7 @@ export default function FileExplorer({ initialPath }: FileExplorerProps) {
     setIsAuthenticating(true);
     setAuthError('');
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       const res = await fetch(`${GATEWAY_URL}/api/samba/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

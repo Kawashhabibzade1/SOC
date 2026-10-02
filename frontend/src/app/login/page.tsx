@@ -12,7 +12,7 @@ export default function LoginV5() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const GATEWAY_URL = '';
+  const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

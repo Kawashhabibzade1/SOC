@@ -16,7 +16,7 @@ export default function TrafficAnalyzer() {
 
   useEffect(() => {
     const fetchTraffic = () => {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       fetch(`${GATEWAY_URL}/api/network/traffic`)
         .then(res => res.json())
         .then(data => {

@@ -208,7 +208,7 @@ export default function DashboardPage() {
                   </div>
                   <button 
                     onClick={async () => {
-                      const GATEWAY_URL = '';
+                      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
                       await fetch(`${GATEWAY_URL}/api/firewall/unlock`, { method: 'POST' });
                     }}
                     className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-orbitron text-xl font-bold uppercase tracking-widest rounded-lg transition-colors border border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.5)]"

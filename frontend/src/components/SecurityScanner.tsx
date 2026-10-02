@@ -24,7 +24,7 @@ export default function SecurityScanner() {
 
   const fetchResults = async () => {
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       const res = await fetch(`${GATEWAY_URL}/api/security/cve`);
       const data = await res.json();
       if (data.success && data.data && data.data.Results) {
@@ -45,7 +45,7 @@ export default function SecurityScanner() {
     setIsScanning(true);
     setError(null);
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       await fetch(`${GATEWAY_URL}/api/security/scan`, { method: 'POST' });
       // It runs in the background. We just wait for the interval to pick up results.
       setTimeout(() => setIsScanning(false), 30000); // Reset UI after 30s

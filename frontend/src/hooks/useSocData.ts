@@ -64,7 +64,7 @@ export interface SocDataState {
 // Constants
 // ─────────────────────────────────────────────
 // With Next.js rewrites, we can just use empty string for relative paths
-const GATEWAY_URL = '';
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
 const MAX_EVENTS   = 300; // Rolling buffer size
 const FETCH_LIMIT  = 100; // Historical events to load on startup
 
@@ -137,7 +137,7 @@ export function useSocData(): SocDataState {
     const sessionInterval = setInterval(fetchActiveSessions, 1000);
 
     // ── 2. Establish Socket.io connection ─────────────────
-    const SOCKET_URL = '';
+    const SOCKET_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
     const socket = io(SOCKET_URL, {
       transports       : ['websocket', 'polling'],
       reconnection     : true,

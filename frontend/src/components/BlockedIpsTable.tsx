@@ -9,7 +9,7 @@ export default function BlockedIpsTable() {
 
   const fetchBlockedIps = async () => {
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       const res = await fetch(`${GATEWAY_URL}/api/blocked-ips`);
       const data = await res.json();
       if (data.success) {
@@ -34,7 +34,7 @@ export default function BlockedIpsTable() {
     if (!confirm(`Are you sure you want to unblock IP ${ip}?`)) return;
     setUnblockingIp(ip);
     try {
-      const GATEWAY_URL = '';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
       const res = await fetch(`${GATEWAY_URL}/api/unblock-ip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
