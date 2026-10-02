@@ -65,7 +65,11 @@ export default function VpnMesh() {
     return <div className="p-6 text-red-500 font-mono">No Tailscale data available. Make sure Tailscale is running on the host.</div>;
   }
 
-  const peers = Object.values(data.Peer || {});
+  const peers = Object.values(data.Peer || {}).sort((a: any, b: any) => {
+    if (a.Active && !b.Active) return -1;
+    if (!a.Active && b.Active) return 1;
+    return 0;
+  });
 
   return (
     <div className="p-6 space-y-6 animate-fade-in h-full overflow-y-auto">

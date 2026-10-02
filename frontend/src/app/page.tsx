@@ -187,7 +187,7 @@ export default function DashboardPage() {
         />
 
         <main
-          className="flex-1 flex flex-col p-2 sm:p-4 overflow-hidden"
+          className="flex-1 flex flex-col p-2 sm:p-4 overflow-y-auto"
           style={{
             paddingTop: 'calc(64px + 0.75rem)', // clear navbar height
           }}

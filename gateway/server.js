@@ -558,7 +558,7 @@ app.get('/api/system-metrics', cors(corsOptions), async (req, res) => {
           free: mem.free,
           active: mem.active
         },
-        disk: fsSize.filter(d => !d.mount.startsWith('/etc/')),
+        disk: fsSize.filter(d => d.fs.startsWith('/dev/') && !d.fs.includes('loop')),
         os: {
           platform: osInfo.platform,
           distro: osInfo.distro,
