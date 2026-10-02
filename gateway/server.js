@@ -30,7 +30,7 @@ const { exec, spawn }  = require('child_process');
 const util      = require('util');
 const geoip     = require('geoip-lite');
 const si        = require('systeminformation');
-const fs        = require('fs-extra');
+const fs        = require('fs');
 const path      = require('path');
 const multer    = require('multer');
 
@@ -249,62 +249,17 @@ app.get('/api/events/stats', cors(corsOptions), async (req, res) => {
  * Returns real-time active TCP connections (SSH, FTP, XRDP) on the server.
  */
 app.get('/api/active-sessions', cors(corsOptions), async (req, res) => {
+  // Active sessions are written every 2s by the collector (index.js) running on
+  // the HOST, where it has real access to the host's network via ss.
+  // The file is mounted into this Docker container as a read-only volume.
+  const SESSION_FILE = '/tmp/soc_active_sessions.json';
   try {
-    // Run 'ss' to get established TCP connections. 
-    // -t = TCP, -n = numeric (no DNS resolve)
-    const { stdout } = await execAsync('ss -tn state established');
-    const lines = stdout.split('\n');
-    const activeSessions = [];
-
-    lines.forEach(line => {
-      // ss output usually: Recv-Q Send-Q Local_Address:Port Peer_Address:Port
-      const parts = line.trim().split(/\s+/);
-      if (parts.length < 4) return;
-      
-      const local = parts[2];
-      const peer = parts[3];
-      if (!local || !peer || local === 'Local') return;
-
-      let localPort, peerIp;
-      
-      // Parse local port (handles IPv4 like 1.2.3.4:22 and IPv6 like [::1]:22)
-      const localMatch = local.match(/:(\d+)$/);
-      if (localMatch) localPort = parseInt(localMatch[1], 10);
-      
-      // Parse peer IP
-      const peerMatch = peer.match(/^(\[[a-fA-F0-9:]+\]|[\d\.]+):/);
-      if (peerMatch) peerIp = peerMatch[1].replace(/\[|\]/g, '');
-
-      // Check if it's one of our monitored ports
-      let service = null;
-      if (localPort === 22) service = 'SSH / SFTP';
-      else if (localPort === 21) service = 'FTP';
-      else if (localPort === 3389) service = 'XRDP';
-      
-      if (service && peerIp) {
-        // Ignore internal localhost / docker connections (172.19.*, 127.0.0.1)
-        if (peerIp.startsWith('127.') || peerIp.startsWith('172.19.')) return;
-
-        // Deduplicate: avoid multiple SSH connections from the same IP showing as duplicates
-        const exists = activeSessions.find(s => s.ip === peerIp && s.service === service);
-        if (!exists) {
-          const geo = geoip.lookup(peerIp);
-          activeSessions.push({
-            ip: peerIp,
-            service,
-            country: geo ? geo.country : null,
-            city: geo ? geo.city : null,
-            latitude: geo && geo.ll ? geo.ll[0] : null,
-            longitude: geo && geo.ll ? geo.ll[1] : null,
-          });
-        }
-      }
-    });
-
-    res.json({ success: true, count: activeSessions.length, data: activeSessions });
+    const raw = fs.readFileSync(SESSION_FILE, 'utf8');
+    const data = JSON.parse(raw);
+    return res.json(data);
   } catch (err) {
-    console.error('[REST] /api/active-sessions error:', err.message);
-    res.status(500).json({ success: false, error: 'Failed to retrieve active sessions.' });
+    // File not yet created by collector or parse error — return empty
+    return res.json({ success: true, count: 0, data: [] });
   }
 });
 
@@ -641,99 +596,13 @@ const PORT_APP_MAP = {
 
 app.get('/api/open-ports', cors(corsOptions), async (req, res) => {
   try {
-    // Get listening ports with process info (may need root for full process info)
-    const { stdout: ssOut } = await execAsync('ss -lntup').catch(() => ({ stdout: '' }));
-    // Get Docker container port mappings
-    const { stdout: dockerOut } = await execAsync("docker ps --format '{{.Names}}|{{.Ports}}|{{.Image}}'").catch(() => ({ stdout: '' }));
-    
-    // Build a map of port -> docker container
-    const dockerPortMap = {};
-    dockerOut.split('\n').forEach(line => {
-      if (!line.trim()) return;
-      const [name, ports, image] = line.split('|');
-      if (!ports) return;
-      // Parse port mappings like "0.0.0.0:8080->80/tcp"
-      const portMatches = ports.matchAll(/(\d+\.\d+\.\d+\.\d+|0\.0\.0\.0)?:(\d+)->(\d+)\/(\w+)/g);
-      for (const m of portMatches) {
-        const hostPort = parseInt(m[2], 10);
-        dockerPortMap[hostPort] = { docker: name, image: image?.split(':')[0]?.split('/')?.pop() || name };
-      }
-    });
-    
-    const lines = ssOut.split('\n');
-    const ports = [];
-
-    lines.forEach(line => {
-      if (!line.trim() || line.startsWith('Netid')) return;
-      const parts = line.trim().split(/\s+/);
-      if (parts.length < 5) return;
-      
-      const proto = parts[0].toLowerCase();
-      const localAddress = parts[4];
-      const localPortMatch = localAddress.match(/:(\d+)$/);
-      if (!localPortMatch) return;
-      
-      const portNum = parseInt(localPortMatch[1], 10);
-      const address = localAddress.replace(/:(\d+)$/, '');
-      
-      // Extract process name from last column if present (ss -lntup with root)
-      let processName = null;
-      const processMatch = line.match(/users:\(\("([^"]+)"/);
-      if (processMatch) processName = processMatch[1];
-      
-      // Look up app name
-      const appInfo = PORT_APP_MAP[portNum];
-      const dockerInfo = dockerPortMap[portNum];
-      
-      let appName = processName;
-      let appType = 'process';
-      let appColor = 'slate';
-      
-      if (dockerInfo) {
-        appName = `${dockerInfo.docker} (Docker)`;
-        appType = 'docker';
-        appColor = 'blue';
-      } else if (appInfo) {
-        appName = appInfo.name;
-        appType = appInfo.icon;
-        appColor = appInfo.color;
-      } else if (processName) {
-        appName = processName;
-      } else {
-        appName = 'Unknown';
-      }
-      
-      ports.push({
-        protocol: proto,
-        port: portNum,
-        address,
-        state: 'LISTENING',
-        process: appName,
-        appType,
-        appColor,
-        isDocker: !!dockerInfo,
-        dockerName: dockerInfo?.docker || null,
-      });
-    });
-
-    // Deduplicate by port and protocol
-    const uniquePorts = [];
-    const seen = new Set();
-    ports.forEach(p => {
-      const key = `${p.protocol}-${p.port}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        uniquePorts.push(p);
-      }
-    });
-
-    // Sort by port number ascending
-    uniquePorts.sort((a, b) => a.port - b.port);
-
-    res.json({ success: true, data: uniquePorts });
+    const PORTS_FILE = '/tmp/soc_open_ports.json';
+    const raw = fs.readFileSync(PORTS_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    res.json({ success: true, data: parsed.data || [] });
   } catch (err) {
-    console.error('[Firewall] Error listing open ports:', err.message);
-    res.status(500).json({ success: false, error: 'Failed to retrieve open ports.' });
+    // If the file does not exist yet or fails to parse, return empty
+    res.json({ success: true, data: [] });
   }
 });
 
@@ -1000,7 +869,105 @@ app.post('/internal/notify', requireInternalKey, (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// 7. 404 FALLBACK
+// 7. DOCKER MANAGEMENT
+// ─────────────────────────────────────────────
+
+app.get('/api/docker/stats', cors(corsOptions), async (req, res) => {
+  try {
+    const { stdout: psOut } = await execAsync("docker ps -a --format '{{json .}}'");
+    const { stdout: statsOut } = await execAsync("docker stats --no-stream --format '{{json .}}'");
+    
+    // Parse JSON streams
+    const containers = psOut.trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+    const stats = statsOut.trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+    
+    const statsMap = {};
+    stats.forEach(s => {
+      statsMap[s.Name] = s;
+      statsMap[s.ID] = s;
+    });
+
+    const result = containers.map(c => {
+      const s = statsMap[c.Names] || statsMap[c.ID] || {};
+      return {
+        id: c.ID,
+        name: c.Names,
+        image: c.Image,
+        state: c.State,
+        status: c.Status,
+        ports: c.Ports,
+        cpu: s.CPUPerc || '0.00%',
+        memory: s.MemUsage || '0B / 0B',
+        memPerc: s.MemPerc || '0.00%',
+      };
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('[Docker] Stats error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/docker/restart/:container', cors(corsOptions), async (req, res) => {
+  try {
+    const { container } = req.params;
+    if (!container.match(/^[a-zA-Z0-9_.-]+$/)) return res.status(400).json({error: 'Invalid container name'});
+    await execAsync(`docker restart ${container}`);
+    res.json({ success: true, message: `Container ${container} restarted.` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/docker/stop/:container', cors(corsOptions), async (req, res) => {
+  try {
+    const { container } = req.params;
+    if (!container.match(/^[a-zA-Z0-9_.-]+$/)) return res.status(400).json({error: 'Invalid container name'});
+    await execAsync(`docker stop ${container}`);
+    res.json({ success: true, message: `Container ${container} stopped.` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/docker/start/:container', cors(corsOptions), async (req, res) => {
+  try {
+    const { container } = req.params;
+    if (!container.match(/^[a-zA-Z0-9_.-]+$/)) return res.status(400).json({error: 'Invalid container name'});
+    await execAsync(`docker start ${container}`);
+    res.json({ success: true, message: `Container ${container} started.` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/docker/logs/:container', cors(corsOptions), async (req, res) => {
+  try {
+    const { container } = req.params;
+    if (!container.match(/^[a-zA-Z0-9_.-]+$/)) return res.status(400).json({error: 'Invalid container name'});
+    const { stdout, stderr } = await execAsync(`docker logs --tail 200 ${container}`);
+    // Return both stdout and stderr since docker mixes them
+    res.json({ success: true, data: (stdout + stderr).split('\n') });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// 8. TAILSCALE
+// ─────────────────────────────────────────────
+app.get('/api/tailscale', cors(corsOptions), (req, res) => {
+  try {
+    const raw = fs.readFileSync('/tmp/soc_tailscale.json', 'utf8');
+    res.json(JSON.parse(raw));
+  } catch (err) {
+    res.json({ success: false, data: null });
+  }
+});
+
+// ─────────────────────────────────────────────
+// 9. 404 FALLBACK
 // ─────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ error: `Route ${req.method} ${req.path} not found.` });

@@ -34,7 +34,7 @@ services:
       # nginx config (read-only)
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       # Tailscale TLS certificates from host (read-only)
-      - /opt/soc/certs:/etc/nginx/certs:ro
+      - ./certs:/etc/nginx/certs:ro
     networks:
       - soc-internal
     depends_on:
@@ -57,35 +57,40 @@ services:
       - "3001"
     env_file:
       - .env
+    volumes:
+      - /tmp/soc_active_sessions.json:/tmp/soc_active_sessions.json:ro
+      - /tmp/soc_open_ports.json:/tmp/soc_open_ports.json:ro
+      - /tmp/soc_tailscale.json:/tmp/soc_tailscale.json:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       # 1. Join the existing MariaDB network so we can reach 'nextcloud-db' by hostname
       - mariadb-net
       # 2. Internal SOC network (shared with nginx)
       - soc-internal
-    depends_on:
-      nextcloud-db:
-        condition: service_healthy
+    # depends_on:
+    #   nextcloud-db:
+    #     condition: service_healthy
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # ── Reference to the EXISTING MariaDB container ──────────────────────────
-  # Declared here only so 'depends_on' and the healthcheck work.
-  nextcloud-db:
-    image: mariadb:10.11
-    container_name: nextcloud-db
-    external_links:
-      - nextcloud-db
-    networks:
-      - mariadb-net
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+#  # ── Reference to the EXISTING MariaDB container ──────────────────────────
+#  # Declared here only so 'depends_on' and the healthcheck work.
+#  nextcloud-db:
+#    image: mariadb:10.11
+#    container_name: nextcloud-db
+#    external_links:
+#      - nextcloud-db
+#    networks:
+#      - mariadb-net
+#    healthcheck:
+#      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#      start_period: 30s
 
 # ─────────────────────────────────────────────
 # NETWORKS

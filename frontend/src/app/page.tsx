@@ -14,8 +14,8 @@ import Sidebar from '@/components/Sidebar';
 import OpenPortsTable from '@/components/OpenPortsTable';
 import BlockedIpsTable from '@/components/BlockedIpsTable';
 import SystemMetrics from '@/components/SystemMetrics';
-import FileExplorer from '@/components/FileExplorer';
-
+import DockerRadar from '@/components/DockerRadar';
+import VpnMesh from '@/components/VpnMesh';
 // ── Dynamic import — react-globe.gl is NOT SSR-compatible ──────────────────
 const GlobeRadar = dynamic(() => import('@/components/GlobeRadar'), {
   ssr    : false,
@@ -103,16 +103,23 @@ export default function DashboardPage() {
             <SystemMetrics />
           </div>
         );
-      case 'explorer':
-        return (
-          <div className="h-full w-full min-h-[500px]">
-            <FileExplorer initialPath={explorerPath} />
-          </div>
-        );
+
       case 'ports':
         return (
           <div className="h-full w-full min-h-[500px]">
             <OpenPortsTable />
+          </div>
+        );
+      case 'docker':
+        return (
+          <div className="h-full w-full min-h-[500px]">
+            <DockerRadar />
+          </div>
+        );
+      case 'vpn_mesh':
+        return (
+          <div className="h-full w-full min-h-[500px]">
+            <VpnMesh />
           </div>
         );
       case 'blocked_ips':

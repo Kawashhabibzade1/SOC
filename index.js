@@ -10,10 +10,11 @@
  */
 
 require('dotenv').config();
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const readline  = require('readline');
 const mysql     = require('mysql2/promise');
 const geoip     = require('geoip-lite');
+const fs        = require('fs');
 
 // ─────────────────────────────────────────────
 // 1. CONFIGURATION
@@ -367,8 +368,9 @@ function enrichWithGeo(event) {
 // 6. LOG COLLECTOR MODULE
 // ─────────────────────────────────────────────
 /**
- * Generic file tail watcher — used for XRDP, FTP, and any extra log sources.
+ * Generic file tail watcher — used for FTP and any extra log sources.
  * Silently skips if the log file doesn't exist on this system.
+ * Uses inotify — if the OS watch limit is hit, use startJournalctlWatcher instead.
  */
 function startFileWatcher(filePath, label) {
   const child = spawn('tail', ['-f', '-n', '0', filePath]);
@@ -398,19 +400,243 @@ function startFileWatcher(filePath, label) {
   });
 
   child.on('error', (err) => {
-    // Log file may not exist on this system — suppress and retry quietly
     console.warn(`[${label}] Could not tail ${filePath} (${err.message}). Retrying in 60s...`);
     setTimeout(() => startFileWatcher(filePath, label), 60000);
   });
 }
 
+/**
+ * journalctl-based watcher — does NOT use inotify file watches.
+ * Reads from the systemd journal for any service with a systemd unit.
+ * Use this instead of startFileWatcher when inotify limits are hit.
+ * @param {string} unit - systemd unit name (e.g. 'xrdp-sesman', 'smbd')
+ * @param {string} label - Label for log messages
+ */
+function startJournalctlWatcher(unit, label) {
+  console.log(`[${label}] Starting journalctl watcher for unit: ${unit}`);
+  const child = spawn('journalctl', ['-u', unit, '-f', '-n', '0', '--output=cat']);
+
+  const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
+
+  rl.on('line', async (line) => {
+    if (!line.trim()) return;
+    const parsed = parseLine(line);
+    if (!parsed) return;
+    const enriched = enrichWithGeo(parsed);
+    await insertEvent(enriched);
+  });
+
+  child.stderr.on('data', (data) => {
+    const msg = data.toString().trim();
+    if (msg) console.warn(`[${label}] stderr: ${msg}`);
+  });
+
+  child.on('close', (code) => {
+    console.warn(`[${label}] journalctl exited (code ${code}). Retrying in 15s...`);
+    setTimeout(() => startJournalctlWatcher(unit, label), 15000);
+  });
+
+  child.on('error', (err) => {
+    console.warn(`[${label}] journalctl error (${err.message}). Retrying in 30s...`);
+    setTimeout(() => startJournalctlWatcher(unit, label), 30000);
+  });
+}
+
+// ─────────────────────────────────────────────
+// Active Sessions Writer (for Docker gateway)
+// Runs on the HOST so it can see real network connections.
+// Writes to /tmp/soc_active_sessions.json which Docker gateway reads via volume mount.
+// ─────────────────────────────────────────────
+const SESSION_FILE = '/tmp/soc_active_sessions.json';
+
+function updateActiveSessions() {
+  try {
+    const stdout = execSync('ss -tn state established 2>/dev/null', { timeout: 3000 }).toString();
+    const lines = stdout.split('\n');
+    const sessions = [];
+
+    lines.forEach(line => {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 4) return;
+      const local = parts[2];
+      const peer  = parts[3];
+      if (!local || !peer || local === 'Local') return;
+
+      const localMatch = local.match(/:(\d+)$/);
+      const peerMatch  = peer.match(/^(\[[a-fA-F0-9:]+\]|[\d\.]+):/);
+      if (!localMatch || !peerMatch) return;
+
+      const localPort = parseInt(localMatch[1], 10);
+      const peerIp    = peerMatch[1].replace(/\[|\]/g, '');
+
+      let service = null;
+      if (localPort === 22)   service = 'SSH / SFTP';
+      else if (localPort === 21)   service = 'FTP';
+      else if (localPort === 3389) service = 'XRDP';
+      else if (localPort === 445)  service = 'SMB';
+
+      if (!service || !peerIp) return;
+      if (peerIp.startsWith('127.') || peerIp.startsWith('172.')) return;
+
+      const exists = sessions.find(s => s.ip === peerIp && s.service === service);
+      if (!exists) {
+        const geo = geoip.lookup(peerIp);
+        sessions.push({
+          ip: peerIp,
+          service,
+          country  : geo ? geo.country : null,
+          city     : geo ? geo.city    : null,
+          latitude : geo && geo.ll ? geo.ll[0] : null,
+          longitude: geo && geo.ll ? geo.ll[1] : null,
+        });
+      }
+    });
+
+    fs.writeFileSync(SESSION_FILE, JSON.stringify({ success: true, count: sessions.length, data: sessions, updatedAt: new Date().toISOString() }));
+  } catch (err) {
+    // ss may not be available — write empty result
+    fs.writeFileSync(SESSION_FILE, JSON.stringify({ success: true, count: 0, data: [], updatedAt: new Date().toISOString() }));
+  }
+}
+
+// Update every 2 seconds
+setInterval(updateActiveSessions, 2000);
+updateActiveSessions();
+
+// ─────────────────────────────────────────────
+// Open Ports Writer (for Docker gateway)
+// Runs on the HOST so it can see all open ports via ss -lntup.
+// Writes to /tmp/soc_open_ports.json which Docker gateway reads via volume mount.
+// ─────────────────────────────────────────────
+const PORTS_FILE = '/tmp/soc_open_ports.json';
+const PORT_APP_MAP = {
+  22: { name: 'SSH / SFTP', icon: 'terminal', color: 'cyan' },
+  80: { name: 'HTTP', icon: 'globe', color: 'blue' },
+  443: { name: 'HTTPS', icon: 'lock', color: 'green' },
+  3001: { name: 'SOC Gateway', icon: 'shield', color: 'purple' },
+  3000: { name: 'SOC Frontend', icon: 'monitor', color: 'purple' },
+  3306: { name: 'MariaDB', icon: 'database', color: 'orange' },
+  3389: { name: 'XRDP (Remote Desktop)', icon: 'monitor', color: 'blue' },
+  445: { name: 'Samba (SMB)', icon: 'folder', color: 'yellow' },
+  139: { name: 'Samba (NetBIOS)', icon: 'folder', color: 'yellow' },
+  8080: { name: 'Nextcloud', icon: 'cloud', color: 'blue' },
+  8081: { name: 'Nextcloud (Alt)', icon: 'cloud', color: 'blue' },
+  32400: { name: 'Plex Media Server', icon: 'film', color: 'yellow' },
+  21: { name: 'FTP', icon: 'upload', color: 'orange' },
+  25: { name: 'SMTP', icon: 'mail', color: 'red' },
+  53: { name: 'DNS', icon: 'search', color: 'gray' },
+};
+
+function updateOpenPorts() {
+  try {
+    const stdout = execSync('ss -lntup 2>/dev/null', { timeout: 3000 }).toString();
+    const dockerOut = execSync("docker ps --format '{{.Names}}|{{.Ports}}|{{.Image}}' 2>/dev/null", { timeout: 3000 }).toString();
+    
+    const dockerPortMap = {};
+    dockerOut.split('\n').forEach(line => {
+      if (!line.trim()) return;
+      const [name, ports, image] = line.split('|');
+      if (!ports) return;
+      const portMatches = ports.matchAll(/(\d+\.\d+\.\d+\.\d+|0\.0\.0\.0)?:(\d+)->(\d+)\/(\w+)/g);
+      for (const m of portMatches) {
+        const hostPort = parseInt(m[2], 10);
+        dockerPortMap[hostPort] = { docker: name, image: image?.split(':')[0]?.split('/')?.pop() || name };
+      }
+    });
+
+    const lines = stdout.split('\n');
+    const ports = [];
+
+    lines.forEach(line => {
+      if (!line.trim() || line.startsWith('Netid')) return;
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 5) return;
+      
+      const proto = parts[0].toLowerCase();
+      const localAddress = parts[4];
+      const localPortMatch = localAddress.match(/:(\d+)$/);
+      if (!localPortMatch) return;
+      
+      const portNum = parseInt(localPortMatch[1], 10);
+      const address = localAddress.replace(/:(\d+)$/, '');
+      
+      let processName = null;
+      const processMatch = line.match(/users:\(\("([^"]+)"/);
+      if (processMatch) processName = processMatch[1];
+      
+      const appInfo = PORT_APP_MAP[portNum];
+      const dockerInfo = dockerPortMap[portNum];
+      
+      let appName = processName;
+      let appType = 'process';
+      let appColor = 'slate';
+      
+      if (dockerInfo) {
+        appName = `${dockerInfo.docker} (Docker)`;
+        appType = 'docker';
+        appColor = 'blue';
+      } else if (appInfo) {
+        appName = appInfo.name;
+        appType = appInfo.icon;
+        appColor = appInfo.color;
+      } else if (processName) {
+        appName = processName;
+      } else {
+        appName = 'Unknown';
+      }
+      
+      const exists = ports.find(p => p.port === portNum && p.protocol === proto);
+      if (!exists) {
+        ports.push({
+          protocol: proto,
+          port: portNum,
+          address,
+          state: 'LISTEN',
+          process: appName,
+          appType,
+          appColor,
+          isDocker: !!dockerInfo,
+          dockerName: dockerInfo ? dockerInfo.docker : null,
+        });
+      }
+    });
+
+    ports.sort((a, b) => a.port - b.port);
+    fs.writeFileSync(PORTS_FILE, JSON.stringify({ success: true, count: ports.length, data: ports }));
+  } catch (err) {
+    fs.writeFileSync(PORTS_FILE, JSON.stringify({ success: true, count: 0, data: [] }));
+  }
+}
+
+setInterval(updateOpenPorts, 5000);
+updateOpenPorts();
+
+// ─────────────────────────────────────────────
+// Tailscale Mesh Status Writer
+// ─────────────────────────────────────────────
+const TAILSCALE_FILE = '/tmp/soc_tailscale.json';
+
+function updateTailscaleStatus() {
+  try {
+    const stdout = execSync('tailscale status --json 2>/dev/null', { timeout: 3000 }).toString();
+    const data = JSON.parse(stdout);
+    fs.writeFileSync(TAILSCALE_FILE, JSON.stringify({ success: true, data }));
+  } catch (err) {
+    fs.writeFileSync(TAILSCALE_FILE, JSON.stringify({ success: false, data: null }));
+  }
+}
+
+setInterval(updateTailscaleStatus, 10000);
+updateTailscaleStatus();
+
 function startCollector() {
   // ── Primary: journalctl -u ssh (covers SSH_FAILED, SSH_SUCCESS) ───────────
-  console.log('[Collector] Starting: journalctl -u ssh -f');
-  const child = spawn('journalctl', ['-u', 'ssh', '-f', '-n', '0', '--output=cat']);
+  console.log('[Collector] Starting: journalctl -t sshd -t sshd-session -f');
+  const child = spawn('journalctl', ['-t', 'sshd', '-t', 'sshd-session', '-f', '-n', '0', '--output=cat']);
   const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
   rl.on('line', async (line) => {
     if (!line.trim()) return;
+    console.log(`[DEBUG SSH] ${line}`);
     const parsed = parseLine(line);
     if (!parsed) return;
     const enriched = enrichWithGeo(parsed);
@@ -429,15 +655,12 @@ function startCollector() {
     setTimeout(startCollector, 10000);
   });
 
-  // ── Fallback: tail /var/log/auth.log for SSH_FAILED from all sources ──────
-  // This catches failed logins from IPs that journalctl might miss
-  startFileWatcher('/var/log/auth.log', 'SSH-AuthLog');
-
   // ── Extra log sources (XRDP, FTP/SFTP, SMB) ───────────────────────────────
-  startFileWatcher('/var/log/xrdp-sesman.log', 'XRDP');
-  startFileWatcher('/var/log/vsftpd.log',      'FTP');
-  startFileWatcher('/var/log/proftpd/proftpd.log', 'ProFTPD');
-  startFileWatcher('/var/log/samba/log.smbd',  'SMB');
+  // Use journalctl for all services (avoids inotify watch limit from Docker)
+  startJournalctlWatcher('xrdp-sesman',  'XRDP');
+  startJournalctlWatcher('smbd',         'SMB');
+  startJournalctlWatcher('vsftpd',       'FTP');
+  startJournalctlWatcher('proftpd',      'ProFTPD');
 }
 
 // ─────────────────────────────────────────────

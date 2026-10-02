@@ -13,8 +13,9 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: 
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'radar', label: 'Globe Radar', icon: Globe2 },
     { id: 'system', label: 'System Metrics', icon: Activity },
-    { id: 'explorer', label: 'File Explorer', icon: FolderOpen },
     { id: 'ports', label: 'Open Ports', icon: Network },
+    { id: 'docker', label: 'Docker Radar', icon: LayoutDashboard },
+    { id: 'vpn_mesh', label: 'VPN Mesh', icon: Network },
     { id: 'blocked_ips', label: 'Blocked IPs', icon: Shield },
   ];
 

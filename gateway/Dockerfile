@@ -18,8 +18,10 @@ RUN npm ci --omit=dev
 # Copy application source
 COPY server.js ./
 
-# Run as the built-in non-root 'node' user for container security
-USER node
+# Install docker CLI for running docker commands from within container
+RUN apk add --no-cache docker-cli
+
+# Run as root so we can access /var/run/docker.sock
 
 # Expose the gateway port
 EXPOSE 3001
