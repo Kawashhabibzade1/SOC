@@ -17,6 +17,9 @@ export type EventType =
   | 'XRDP_SUCCESS'
   | 'FTP_SUCCESS'
   | 'SFTP_SUCCESS'
+  | 'HONEYPOT_BREACH'
+  | 'LOCKDOWN_ENGAGED'
+  | 'LOCKDOWN_RELEASED'
   | 'UNKNOWN';
 
 export interface SecurityEvent {
@@ -54,6 +57,7 @@ export interface SocDataState {
   isConnected    : boolean;
   latestEvent    : SecurityEvent | null;
   stats          : SocStats;
+  isLockdown     : boolean;
 }
 
 // ─────────────────────────────────────────────
@@ -78,6 +82,7 @@ export function useSocData(): SocDataState {
     successLogins: 0,
     uniqueCountries: 0,
   });
+  const [isLockdown, setIsLockdown] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
   const pushEvent = useCallback((event: SecurityEvent) => {
@@ -168,6 +173,10 @@ export function useSocData(): SocDataState {
         latitude     : rawEvent.latitude != null ? Number(rawEvent.latitude) : null,
         longitude    : rawEvent.longitude != null ? Number(rawEvent.longitude) : null,
       };
+      
+      if (normalizedEvent.event_type === 'LOCKDOWN_ENGAGED') setIsLockdown(true);
+      if (normalizedEvent.event_type === 'LOCKDOWN_RELEASED') setIsLockdown(false);
+      
       pushEvent(normalizedEvent);
       
       setStats(prev => {
@@ -194,7 +203,7 @@ export function useSocData(): SocDataState {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [pushEvent]);
+  }, [pushEvent, events]);
 
-  return { events, activeSessions, isConnected, latestEvent, stats };
+  return { events, activeSessions, isConnected, latestEvent, stats, isLockdown };
 }

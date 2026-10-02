@@ -18,6 +18,9 @@ const TYPE_STYLE: Record<EventType, { tag: string; color: string; dim: string }>
   XRDP_SUCCESS     : { tag: 'XRDP+', color: '#d946ef', dim: '#06b6d4' },
   FTP_SUCCESS      : { tag: 'FTP+ ', color: '#ec4899', dim: '#06b6d4' },
   SFTP_SUCCESS     : { tag: 'SFTP+', color: '#14b8a6', dim: '#06b6d4' },
+  HONEYPOT_BREACH  : { tag: 'TRAP ', color: '#ff003c', dim: '#7f0022' },
+  LOCKDOWN_ENGAGED : { tag: 'PANIC', color: '#f97316', dim: '#7c3912' },
+  LOCKDOWN_RELEASED: { tag: 'UNLCK', color: '#10b981', dim: '#064e3b' },
   UNKNOWN          : { tag: '?????', color: '#6b7280', dim: '#374151' },
 };
 

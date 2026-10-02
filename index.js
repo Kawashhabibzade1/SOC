@@ -629,6 +629,85 @@ function updateTailscaleStatus() {
 setInterval(updateTailscaleStatus, 10000);
 updateTailscaleStatus();
 
+// ─────────────────────────────────────────────
+// Honeypot (Active Defense Traps)
+// ─────────────────────────────────────────────
+const net = require('net');
+const HONEYPOT_PORTS = [2323, 6379, 2121]; // Common attack ports (Telnet, Redis, FTP)
+
+HONEYPOT_PORTS.forEach(port => {
+  const server = net.createServer((socket) => {
+    let ip = socket.remoteAddress || 'unknown';
+    ip = ip.replace(/^.*:/, ''); // Strip IPv6 prefix if present
+
+    console.warn(`[HONEYPOT] Trap triggered on port ${port} by ${ip}`);
+    
+    // Simulate fake response depending on port to waste attacker's time or gather info
+    if (port === 2323) socket.write("Ubuntu 22.04 LTS\nlogin: ");
+    else if (port === 6379) socket.write("-NOAUTH Authentication required.\r\n");
+    else socket.write("220 ProFTPD Server (ProFTPD) [::ffff:192.168.0.193]\r\n");
+
+    // We don't immediately destroy, let them hang for a bit
+    setTimeout(() => socket.destroy(), 3000);
+
+    // Trigger HONEYPOT_BREACH event
+    const event = {
+      event_type: 'HONEYPOT_BREACH',
+      ip_address: ip,
+      targeted_user: `port_${port}`,
+      raw_log: `[HONEYPOT] Connection attempt to honeypot port ${port}`
+    };
+    const enriched = enrichWithGeo(event);
+    insertEvent(enriched);
+  });
+  
+  server.on('error', (err) => {
+    console.error(`[HONEYPOT] Failed to start honeypot on port ${port}: ${err.message}`);
+  });
+  
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`[Honeypot] Trap armed on port ${port}`);
+  });
+});
+
+// ─────────────────────────────────────────────
+// Lockdown Watcher (Panic Button)
+// ─────────────────────────────────────────────
+const LOCKDOWN_FILE = '/tmp/soc_lockdown.trigger';
+let isLockdownActive = false;
+
+function applyLockdownRules(enable) {
+  try {
+    if (enable) {
+      console.warn('[LOCKDOWN] ENGAGING COMPLETE NETWORK LOCKDOWN!');
+      execSync('echo "0000" | sudo -S iptables -P INPUT DROP');
+      execSync('echo "0000" | sudo -S iptables -A INPUT -i lo -j ACCEPT');
+      execSync('echo "0000" | sudo -S iptables -A INPUT -i tailscale0 -j ACCEPT');
+      execSync('echo "0000" | sudo -S iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT');
+      execSync('echo "0000" | sudo -S iptables -A INPUT -p tcp --dport 22 -j ACCEPT');
+    } else {
+      console.log('[LOCKDOWN] RELEASING LOCKDOWN.');
+      execSync('echo "0000" | sudo -S iptables -P INPUT ACCEPT');
+      execSync('echo "0000" | sudo -S iptables -F INPUT');
+    }
+  } catch (err) {
+    console.error(`[LOCKDOWN] Error applying iptables rules: ${err.message}`);
+  }
+}
+
+function checkLockdownStatus() {
+  const triggerExists = fs.existsSync(LOCKDOWN_FILE);
+  if (triggerExists && !isLockdownActive) {
+    isLockdownActive = true;
+    applyLockdownRules(true);
+  } else if (!triggerExists && isLockdownActive) {
+    isLockdownActive = false;
+    applyLockdownRules(false);
+  }
+}
+
+setInterval(checkLockdownStatus, 2000);
+
 function startCollector() {
   // ── Primary: journalctl -u ssh (covers SSH_FAILED, SSH_SUCCESS) ───────────
   console.log('[Collector] Starting: journalctl -t sshd -t sshd-session -f');

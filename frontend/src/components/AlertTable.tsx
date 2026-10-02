@@ -33,6 +33,9 @@ function EventBadge({ type }: BadgeProps) {
     XRDP_SUCCESS     : 'badge-fuchsia',
     FTP_SUCCESS      : 'badge-pink',
     SFTP_SUCCESS     : 'badge-teal',
+    HONEYPOT_BREACH  : 'badge-red',
+    LOCKDOWN_ENGAGED : 'badge-orange',
+    LOCKDOWN_RELEASED: 'badge-green',
     UNKNOWN          : 'badge-gray',
   };
   return <span className={map[type] ?? 'badge-gray'}>{type.replace('_', ' ')}</span>;

@@ -967,7 +967,49 @@ app.get('/api/tailscale', cors(corsOptions), (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// 9. 404 FALLBACK
+// 9. FIREWALL / PANIC BUTTON
+// ─────────────────────────────────────────────
+app.post('/api/firewall/lockdown', cors(corsOptions), (req, res) => {
+  try {
+    fs.writeFileSync('/host_tmp/soc_lockdown.trigger', String(Date.now()));
+    
+    // Broadcast the lockdown event to all clients
+    const payload = {
+      event_type: 'LOCKDOWN_ENGAGED',
+      ip_address: '0.0.0.0',
+      timestamp: new Date().toISOString(),
+      raw_log: 'PANIC BUTTON PRESSED. INITIATING COMPLETE NETWORK LOCKDOWN.',
+    };
+    io.emit('new_event', payload);
+    
+    res.json({ success: true, message: 'Lockdown engaged.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/firewall/unlock', cors(corsOptions), (req, res) => {
+  try {
+    if (fs.existsSync('/host_tmp/soc_lockdown.trigger')) {
+      fs.unlinkSync('/host_tmp/soc_lockdown.trigger');
+    }
+    
+    const payload = {
+      event_type: 'LOCKDOWN_RELEASED',
+      ip_address: '0.0.0.0',
+      timestamp: new Date().toISOString(),
+      raw_log: 'LOCKDOWN LIFTED. NETWORK TRAFFIC RESTORED.',
+    };
+    io.emit('new_event', payload);
+    
+    res.json({ success: true, message: 'Lockdown lifted.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// 10. 404 FALLBACK
 // ─────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ error: `Route ${req.method} ${req.path} not found.` });

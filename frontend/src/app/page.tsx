@@ -41,7 +41,7 @@ const GlobeRadar = dynamic(() => import('@/components/GlobeRadar'), {
 export default function DashboardPage() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const { events, activeSessions, isConnected, latestEvent, stats } = useSocData();
+  const { events, activeSessions, isConnected, latestEvent, stats, isLockdown } = useSocData();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [explorerPath, setExplorerPath] = useState('SAMBA');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -172,8 +172,31 @@ export default function DashboardPage() {
           }}
         >
           {/* Animated content wrapper */}
-          <div className="flex-1 animate-in fade-in zoom-in-95 duration-300 h-full">
+          <div className="flex-1 animate-in fade-in zoom-in-95 duration-300 h-full relative">
             {renderContent()}
+
+            {/* Lockdown Overlay */}
+            {isLockdown && (
+              <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-red-950/80 backdrop-blur-md rounded-xl border border-red-500 shadow-[0_0_50px_rgba(239,68,68,0.5)]">
+                <div className="animate-pulse flex flex-col items-center">
+                  <div className="text-red-500 font-orbitron font-black text-6xl tracking-widest mb-4 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]">
+                    LOCKDOWN
+                  </div>
+                  <div className="font-mono text-red-400 text-lg tracking-widest mb-8 text-center uppercase">
+                    Total Network Isolation Engaged
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
+                      await fetch(`${GATEWAY_URL}/api/firewall/unlock`, { method: 'POST' });
+                    }}
+                    className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-orbitron text-xl font-bold uppercase tracking-widest rounded-lg transition-colors border border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+                  >
+                    Release System
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>

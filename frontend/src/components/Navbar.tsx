@@ -200,6 +200,19 @@ export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
           )}
         </div>
 
+        {/* Lockdown Button */}
+        <button
+          onClick={async () => {
+            const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
+            await fetch(`${GATEWAY_URL}/api/firewall/lockdown`, { method: 'POST' });
+          }}
+          className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-red-500/50 bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 font-mono text-[10px] sm:text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_25px_rgba(239,68,68,0.6)] transition-all cursor-pointer"
+          title="Engage Lockdown"
+        >
+          <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 animate-pulse" />
+          <span className="hidden sm:inline font-bold">PANIC</span>
+        </button>
+
         {/* Settings Dropdown */}
         <div className="relative" ref={settingsRef}>
           <button
