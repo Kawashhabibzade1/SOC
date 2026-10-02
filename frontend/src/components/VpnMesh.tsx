@@ -23,7 +23,7 @@ export default function VpnMesh() {
 
   const fetchTailscale = async () => {
     try {
-      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || `http://${window.location.hostname}:3001`;
+      const GATEWAY_URL = '';
       const res = await fetch(`${GATEWAY_URL}/api/tailscale`);
       const json = await res.json();
       if (json.success && json.data) {
@@ -68,7 +68,7 @@ export default function VpnMesh() {
   const peers = Object.values(data.Peer || {});
 
   return (
-    <div className="p-6 space-y-6 animate-fade-in">
+    <div className="p-6 space-y-6 animate-fade-in h-full overflow-y-auto">
       <div className="flex items-center gap-3 mb-6">
         <Network className="w-8 h-8 text-cyber-cyan" />
         <h2 className="text-2xl font-orbitron font-bold text-slate-100">VPN Mesh Radar</h2>

@@ -15,7 +15,7 @@ export default function SystemMetrics() {
 
   const fetchMetrics = async () => {
     try {
-      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || `http://${window.location.hostname}:3001`;
+      const GATEWAY_URL = '';
       const res = await fetch(`${GATEWAY_URL}/api/system-metrics`);
       const json = await res.json();
       if (json.success) {

@@ -63,13 +63,8 @@ export interface SocDataState {
 // ─────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────
-// Calculate GATEWAY_URL dynamically if in browser
-const getGatewayUrl = () => {
-  if (process.env.NEXT_PUBLIC_GATEWAY_URL) return process.env.NEXT_PUBLIC_GATEWAY_URL;
-  if (typeof window !== 'undefined') return `http://${window.location.hostname}:3001`;
-  return 'http://localhost:3001';
-};
-const GATEWAY_URL = getGatewayUrl();
+// With Next.js rewrites, we can just use empty string for relative paths
+const GATEWAY_URL = '';
 const MAX_EVENTS   = 300; // Rolling buffer size
 const FETCH_LIMIT  = 100; // Historical events to load on startup
 

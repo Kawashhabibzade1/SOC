@@ -35,7 +35,7 @@ export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
 
     const fetchStatus = async () => {
       try {
-        const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || `http://${window.location.hostname}:3001`;
+        const GATEWAY_URL = '';
         const res = await fetch(`${GATEWAY_URL}/api/auth/status`);
         const data = await res.json();
         if (data.success) {
@@ -80,7 +80,7 @@ export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
 
     setPwLoading(true);
     try {
-      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || `http://${window.location.hostname}:3001`;
+      const GATEWAY_URL = '';
       const res = await fetch(`${GATEWAY_URL}/api/auth/change-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -203,7 +203,7 @@ export default function Navbar({ isConnected, totalEvents }: NavbarProps) {
         {/* Lockdown Button */}
         <button
           onClick={async () => {
-            const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || `http://${window.location.hostname}:3001`;
+            const GATEWAY_URL = '';
             await fetch(`${GATEWAY_URL}/api/firewall/lockdown`, { method: 'POST' });
           }}
           className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-red-500/50 bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 font-mono text-[10px] sm:text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:shadow-[0_0_25px_rgba(239,68,68,0.6)] transition-all cursor-pointer"
