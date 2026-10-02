@@ -137,7 +137,8 @@ export function useSocData(): SocDataState {
     const sessionInterval = setInterval(fetchActiveSessions, 1000);
 
     // ── 2. Establish Socket.io connection ─────────────────
-    const socket = io(GATEWAY_URL, {
+    const SOCKET_URL = typeof window !== 'undefined' ? `http://${window.location.hostname}:3001` : 'http://localhost:3001';
+    const socket = io(SOCKET_URL, {
       transports       : ['websocket', 'polling'],
       reconnection     : true,
       reconnectionDelay: 2000,
