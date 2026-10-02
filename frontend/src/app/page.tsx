@@ -82,10 +82,10 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-3 h-full overflow-y-auto pb-12">
             <MetricsRow stats={stats} />
             <div className="flex flex-col lg:flex-row gap-4 flex-none">
-              <div className="order-2 lg:order-1 lg:w-2/3 flex flex-col h-[400px] lg:h-auto">
+              <div className="order-2 lg:order-1 lg:w-2/3 flex flex-col h-[400px] lg:h-[450px]">
                 <AlertTable events={events} />
               </div>
-              <div className="order-1 lg:order-2 lg:w-1/3 flex flex-col h-[300px] lg:h-[400px] lg:h-auto">
+              <div className="order-1 lg:order-2 lg:w-1/3 flex flex-col h-[300px] lg:h-[450px]">
                 <ActiveSessions sessions={activeSessions} />
               </div>
             </div>
