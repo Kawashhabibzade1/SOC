@@ -630,6 +630,111 @@ setInterval(updateTailscaleStatus, 10000);
 updateTailscaleStatus();
 
 // ─────────────────────────────────────────────
+// Rogue Device Detection (LAN Monitor)
+// ─────────────────────────────────────────────
+const TRUSTED_MACS_FILE = path.join(__dirname, 'trusted_macs.json');
+const LAN_DEVICES_FILE = '/tmp/soc_lan_devices.json';
+
+function updateRogueDevices() {
+  try {
+    const stdout = execSync('ip neigh show').toString();
+    const lines = stdout.split('\n');
+    let trustedMacs = {};
+    if (fs.existsSync(TRUSTED_MACS_FILE)) {
+      trustedMacs = JSON.parse(fs.readFileSync(TRUSTED_MACS_FILE, 'utf8'));
+    } else {
+      // First run: auto-trust everything currently seen? 
+      // For a honeypot logic, we should probably start empty and alert everything, or auto-trust 192.168.0.1 (router)
+    }
+
+    const currentDevices = [];
+    lines.forEach(line => {
+      const parts = line.trim().split(' ').filter(p => p);
+      // Example: 192.168.0.132 dev wlp2s0 lladdr 6c:1f:f7:a2:48:60 REACHABLE
+      if (parts.length >= 5 && parts[2] === 'lladdr') {
+        const ip = parts[0];
+        const mac = parts[3];
+        if (mac.includes(':') && ip.includes('.')) {
+          const isTrusted = !!trustedMacs[mac]?.trusted;
+          currentDevices.push({ ip, mac, trusted: isTrusted, last_seen: Date.now() });
+
+          if (!trustedMacs[mac]) {
+            // New device! Alert it.
+            console.warn(`[ROGUE] Unknown device detected: IP=${ip} MAC=${mac}`);
+            trustedMacs[mac] = { trusted: false, first_seen: Date.now(), alerted: true, ip };
+            
+            // Log as SOC event
+            const event = {
+              event_type: 'UNKNOWN',
+              ip_address: ip,
+              targeted_user: `MAC: ${mac}`,
+              raw_log: `[WARNING] Unknown/Rogue device detected on LAN: ${ip} (${mac})`
+            };
+            const enriched = enrichWithGeo(event);
+            insertEvent(enriched);
+          }
+        }
+      }
+    });
+
+    fs.writeFileSync(TRUSTED_MACS_FILE, JSON.stringify(trustedMacs, null, 2));
+    fs.writeFileSync(LAN_DEVICES_FILE, JSON.stringify({ success: true, count: currentDevices.length, data: currentDevices }));
+  } catch (err) {
+    fs.writeFileSync(LAN_DEVICES_FILE, JSON.stringify({ success: false, data: [] }));
+  }
+}
+
+setInterval(updateRogueDevices, 15000);
+updateRogueDevices();
+
+// ─────────────────────────────────────────────
+// Network Traffic Monitor
+// ─────────────────────────────────────────────
+const TRAFFIC_FILE = '/tmp/soc_network_traffic.json';
+let lastTrafficData = {};
+let lastTrafficTime = Date.now();
+
+function updateNetworkTraffic() {
+  try {
+    const raw = fs.readFileSync('/proc/net/dev', 'utf8');
+    const lines = raw.split('\n').slice(2); // Skip header
+    const now = Date.now();
+    const timeDiffSec = (now - lastTrafficTime) / 1000;
+    
+    let currentData = {};
+    let interfaceStats = [];
+    
+    lines.forEach(line => {
+      const parts = line.trim().split(/[\s:]+/);
+      if (parts.length < 17) return;
+      const iface = parts[0];
+      const rxBytes = parseInt(parts[1], 10);
+      const txBytes = parseInt(parts[9], 10);
+      
+      currentData[iface] = { rx: rxBytes, tx: txBytes };
+      
+      if (lastTrafficData[iface] && timeDiffSec > 0) {
+        const rxSpeed = (rxBytes - lastTrafficData[iface].rx) / timeDiffSec; // Bytes/sec
+        const txSpeed = (txBytes - lastTrafficData[iface].tx) / timeDiffSec;
+        interfaceStats.push({ iface, rxSpeed, txSpeed, totalRx: rxBytes, totalTx: txBytes });
+      }
+    });
+    
+    lastTrafficData = currentData;
+    lastTrafficTime = now;
+    
+    if (interfaceStats.length > 0) {
+      fs.writeFileSync(TRAFFIC_FILE, JSON.stringify({ success: true, data: interfaceStats }));
+    }
+  } catch (err) {
+    fs.writeFileSync(TRAFFIC_FILE, JSON.stringify({ success: false, data: [] }));
+  }
+}
+
+setInterval(updateNetworkTraffic, 2000);
+updateNetworkTraffic();
+
+// ─────────────────────────────────────────────
 // Honeypot (Active Defense Traps)
 // ─────────────────────────────────────────────
 const net = require('net');

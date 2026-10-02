@@ -61,6 +61,8 @@ services:
       - /tmp/soc_active_sessions.json:/tmp/soc_active_sessions.json:ro
       - /tmp/soc_open_ports.json:/tmp/soc_open_ports.json:ro
       - /tmp/soc_tailscale.json:/tmp/soc_tailscale.json:ro
+      - /tmp/soc_lan_devices.json:/tmp/soc_lan_devices.json:ro
+      - /tmp/soc_network_traffic.json:/tmp/soc_network_traffic.json:ro
       - /tmp:/host_tmp
       - /var/run/docker.sock:/var/run/docker.sock
     networks:

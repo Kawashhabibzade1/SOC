@@ -966,6 +966,24 @@ app.get('/api/tailscale', cors(corsOptions), (req, res) => {
   }
 });
 
+app.get('/api/lan/devices', cors(corsOptions), (req, res) => {
+  try {
+    const raw = fs.readFileSync('/tmp/soc_lan_devices.json', 'utf8');
+    res.json(JSON.parse(raw));
+  } catch (err) {
+    res.json({ success: false, data: [] });
+  }
+});
+
+app.get('/api/network/traffic', cors(corsOptions), (req, res) => {
+  try {
+    const raw = fs.readFileSync('/tmp/soc_network_traffic.json', 'utf8');
+    res.json(JSON.parse(raw));
+  } catch (err) {
+    res.json({ success: false, data: [] });
+  }
+});
+
 // ─────────────────────────────────────────────
 // 9. FIREWALL / PANIC BUTTON
 // ─────────────────────────────────────────────
