@@ -16,7 +16,7 @@ export default function TrafficAnalyzer() {
 
   useEffect(() => {
     const fetchTraffic = () => {
-      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || `http://${window.location.hostname}:3001`;
       fetch(`${GATEWAY_URL}/api/network/traffic`)
         .then(res => res.json())
         .then(data => {

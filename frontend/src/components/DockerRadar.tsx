@@ -21,7 +21,8 @@ export default function DockerRadar() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch('/api/docker/stats');
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || `http://${window.location.hostname}:3001`;
+      const res = await fetch(`${GATEWAY_URL}/api/docker/stats`);
       const data = await res.json();
       if (data.success) {
         setContainers(data.data);
@@ -41,7 +42,8 @@ export default function DockerRadar() {
 
   const handleAction = async (action: 'start' | 'stop' | 'restart', container: string) => {
     try {
-      await fetch(`/api/docker/${action}/${container}`, { method: 'POST' });
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || `http://${window.location.hostname}:3001`;
+      await fetch(`${GATEWAY_URL}/api/docker/${action}/${container}`, { method: 'POST' });
       fetchStats(); // Refresh immediately
     } catch (err) {
       console.error(`Failed to ${action} ${container}`, err);
@@ -50,7 +52,8 @@ export default function DockerRadar() {
 
   const fetchLogs = async (container: string) => {
     try {
-      const res = await fetch(`/api/docker/logs/${container}`);
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || `http://${window.location.hostname}:3001`;
+      const res = await fetch(`${GATEWAY_URL}/api/docker/logs/${container}`);
       const data = await res.json();
       if (data.success) {
         setLogs((prev) => ({ ...prev, [container]: data.data }));

@@ -16,7 +16,7 @@ export default function OtpVerificationV7() {
   const [copied, setCopied] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
+  const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || `http://${window.location.hostname}:3001`;
 
   const fetchQr = async () => {
     setQrLoading(true);

@@ -15,7 +15,7 @@ export default function LanMonitor() {
 
   useEffect(() => {
     const fetchDevices = () => {
-      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001';
+      const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || `http://${window.location.hostname}:3001`;
       fetch(`${GATEWAY_URL}/api/lan/devices`)
         .then(res => res.json())
         .then(data => {
