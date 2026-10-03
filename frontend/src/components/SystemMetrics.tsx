@@ -84,7 +84,7 @@ export default function SystemMetrics() {
 
   if (!data) return null;
 
-  const memPercent = (data.mem.active / data.mem.total) * 100;
+  const memPercent = (data.mem.used / data.mem.total) * 100;
   
   // Filter out internal loopbacks, tmpfs, and system partitions to only show real drives
   const realDisks = data.disk.filter(d => 
@@ -188,7 +188,7 @@ export default function SystemMetrics() {
             />
           </div>
           <div className="flex justify-between font-mono text-[10px] text-slate-400 uppercase z-10 relative">
-            <span>{formatBytes(data.mem.active)} Used</span>
+            <span>{formatBytes(data.mem.used)} Used</span>
             <span>{formatBytes(data.mem.total)} Total</span>
           </div>
         </div>
