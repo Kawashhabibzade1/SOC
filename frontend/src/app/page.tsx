@@ -13,6 +13,7 @@ import ActiveSessions from '@/components/ActiveSessions';
 import Sidebar from '@/components/Sidebar';
 import OpenPortsTable from '@/components/OpenPortsTable';
 import BlockedIpsTable from '@/components/BlockedIpsTable';
+import ModuleHeader from '@/components/ModuleHeader';
 import SystemMetrics from '@/components/SystemMetrics';
 import DockerRadar from '@/components/DockerRadar';
 import VpnMesh from '@/components/VpnMesh';
@@ -96,56 +97,93 @@ export default function DashboardPage() {
         );
       case 'radar':
         return (
-          <div className="h-full w-full glass-panel rounded-xl overflow-hidden min-h-[500px]">
-            <GlobeRadar events={events} latestEvent={latestEvent} />
+          <div className="h-full w-full flex flex-col min-h-[500px]">
+            <ModuleHeader 
+              title="Globe Radar" 
+              description="Visualizes the geographical origin of incoming cyber attacks on a 3D interactive globe in real-time."
+            />
+            <div className="flex-1 glass-panel rounded-xl overflow-hidden">
+              <GlobeRadar events={events} latestEvent={latestEvent} />
+            </div>
           </div>
         );
       case 'system':
         return (
-          <div className="h-full w-full min-h-[500px]">
+          <div className="h-full w-full flex flex-col min-h-[500px]">
+            <ModuleHeader 
+              title="System Metrics" 
+              description="Monitors the real-time hardware health of the server including CPU load, temperature, RAM utilization, and storage capacity across all connected drives."
+            />
             <SystemMetrics />
           </div>
         );
       case 'lan_monitor':
         return (
-          <div className="h-full w-full min-h-[500px]">
+          <div className="h-full w-full flex flex-col min-h-[500px]">
+            <ModuleHeader 
+              title="LAN Monitor" 
+              description="Scans the local home network (192.168.0.x) to identify and track all connected devices (phones, TVs, computers) and their online status."
+            />
             <LanMonitor />
           </div>
         );
       case 'traffic':
         return (
-          <div className="h-full w-full min-h-[500px]">
+          <div className="h-full w-full flex flex-col min-h-[500px]">
+            <ModuleHeader 
+              title="Traffic Analyzer" 
+              description="Functions as an internet speedometer, displaying live upload and download bandwidth across your network interfaces (Wi-Fi, Ethernet, Tailscale)."
+            />
             <TrafficAnalyzer />
           </div>
         );
       case 'cve_scanner':
         return (
-          <div className="h-full w-full min-h-[500px]">
+          <div className="h-full w-full flex flex-col min-h-[500px]">
+            <ModuleHeader 
+              title="CVE Scanner" 
+              description="Automatically scans installed Docker containers for known security vulnerabilities (Common Vulnerabilities and Exposures) and reports outdated software."
+            />
             <SecurityScanner />
           </div>
         );
-
       case 'ports':
         return (
-          <div className="h-full w-full min-h-[500px]">
+          <div className="h-full w-full flex flex-col min-h-[500px]">
+            <ModuleHeader 
+              title="Open Ports" 
+              description="Scans the server to show exactly which network ports are currently open and listening for connections, along with the specific service or app using them."
+            />
             <OpenPortsTable />
           </div>
         );
       case 'docker':
         return (
-          <div className="h-full w-full min-h-[500px]">
+          <div className="h-full w-full flex flex-col min-h-[500px]">
+            <ModuleHeader 
+              title="Docker Radar" 
+              description="Lists all running Docker containers (like Nextcloud, Jellyfin), showing their live CPU and Memory usage, uptime, and overall health status."
+            />
             <DockerRadar />
           </div>
         );
       case 'vpn_mesh':
         return (
-          <div className="h-full w-full min-h-[500px]">
+          <div className="h-full w-full flex flex-col min-h-[500px]">
+            <ModuleHeader 
+              title="VPN Mesh" 
+              description="Controls the Tailscale VPN network, displaying all authenticated devices and sorting the currently active and online devices at the top."
+            />
             <VpnMesh />
           </div>
         );
       case 'blocked_ips':
         return (
-          <div className="h-full w-full min-h-[500px]">
+          <div className="h-full w-full flex flex-col min-h-[500px]">
+            <ModuleHeader 
+              title="Blocked IPs" 
+              description="Acts as the server's Blacklist, showing all attacker IP addresses that have been permanently banned by the Fail2ban firewall system."
+            />
             <BlockedIpsTable />
           </div>
         );
