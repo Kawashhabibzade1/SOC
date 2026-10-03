@@ -76,6 +76,8 @@ async function createPool(retries = 10, delayMs = 2000) {
   }
 }
 
+const recentEventsCache = new Map();
+
 /**
  * Inserts a parsed security event into the database,
  * then notifies the Phase 2 Gateway for real-time broadcasting.
@@ -83,7 +85,20 @@ async function createPool(retries = 10, delayMs = 2000) {
  * @param {Object} event - The enriched security event.
  */
 async function insertEvent(event) {
-  if (!pool) return;
+  if (!pool || !event || !event.event_type) return;
+
+  // Deduplicate identical events within a 1.5s window
+  const dedupKey = `${event.event_type}:${event.targeted_user || ''}:${event.ip_address || ''}`;
+  const now = Date.now();
+  if (recentEventsCache.has(dedupKey) && (now - recentEventsCache.get(dedupKey)) < 1500) {
+    return;
+  }
+  recentEventsCache.set(dedupKey, now);
+  if (recentEventsCache.size > 200) {
+    for (const [k, v] of recentEventsCache.entries()) {
+      if (now - v > 10000) recentEventsCache.delete(k);
+    }
+  }
 
   const sql = `
     INSERT INTO security_events
@@ -162,6 +177,8 @@ async function notifyGateway(event) {
   }
 }
 
+const pendingXrdpLogins = new Map();
+
 // ─────────────────────────────────────────────
 // 4. PARSER MODULE
 // ─────────────────────────────────────────────
@@ -201,23 +218,12 @@ const PATTERNS = [
   },
   {
     event_type : 'XRDP_SUCCESS',
-    regex      : /lib_mod_log_peer:.*?client=\[(?:::ffff:)?([\d.]+)\]/i,
-    extract    : (m) => ({ targeted_user: 'xrdp_user', ip_address: m[1] }),
-  },
-  {
-    event_type : 'XRDP_SUCCESS',
     regex      : /Access permitted for user:\s+(\S+)/i,
-    extract    : (m) => ({ targeted_user: m[1], ip_address: '0.0.0.0' }),
-  },
-  {
-    event_type : 'XRDP_SUCCESS',
-    regex      : /Received system login request from xrdp for user:\s+(\S+)\s+IP:\s+(?:::ffff:)?([\d.]+)/i,
-    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
-  },
-  {
-    event_type : 'XRDP_FAILED',
-    regex      : /sesman_auth.*auth(?:fail| not valid).*?user\s+(\S+)\s+from\s+ip\s+([\d.]+)/i,
-    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+    extract    : (m) => {
+      const user = m[1];
+      const ip = pendingXrdpLogins.get(user) || '0.0.0.0';
+      return { targeted_user: user, ip_address: ip };
+    },
   },
   {
     event_type : 'XRDP_FAILED',
@@ -282,6 +288,13 @@ const PATTERNS = [
 ];
 
 function parseLine(line) {
+  // Capture incoming XRDP login request user + IP before auth is completed
+  const xrdpReqMatch = line.match(/Received system login request from xrdp for user:\s+(\S+)\s+IP:\s+(?:::ffff:)?([\d.]+)/i);
+  if (xrdpReqMatch) {
+    pendingXrdpLogins.set(xrdpReqMatch[1], xrdpReqMatch[2]);
+    return null; // Don't trigger DB event yet
+  }
+
   for (const pattern of PATTERNS) {
     const match = line.match(pattern.regex);
     if (match) {
@@ -845,7 +858,7 @@ setInterval(checkLockdownStatus, 2000);
 
 function startJournalctlWatcher(unitName, tag) {
   console.log(`[Collector] Starting journalctl watcher for ${tag} (-u ${unitName})`);
-  const child = spawn('journalctl', ['-u', unitName, '-t', unitName, '-f', '-n', '50', '--output=cat']);
+  const child = spawn('journalctl', ['-u', unitName, '-f', '-n', '50', '--output=cat']);
   const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
 
   rl.on('line', async (line) => {
