@@ -42,18 +42,27 @@ const config = {
   internalApiKey: process.env.INTERNAL_API_KEY || 'changeme-use-a-real-secret',
 };
 
-// ─────────────────────────────────────────────
-// 2. DATABASE MODULE
-// ─────────────────────────────────────────────
 let pool = null;
 
+function resolveDbHost(host) {
+  try {
+    const ip = execSync(`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' nextcloud-db 2>/dev/null`)
+      .toString()
+      .trim();
+    if (ip) return ip;
+  } catch (e) {}
+  return host || '127.0.0.1';
+}
+
 async function createPool(retries = 10, delayMs = 2000) {
+  const dbConfig = { ...config.db, host: resolveDbHost(config.db.host) };
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      pool = mysql.createPool(config.db);
+      dbConfig.host = resolveDbHost(config.db.host);
+      pool = mysql.createPool(dbConfig);
       const conn = await pool.getConnection();
       conn.release();
-      console.log('[DB] Connected to MariaDB pool successfully.');
+      console.log(`[DB] Connected to MariaDB pool successfully (${dbConfig.host}).`);
       return pool;
     } catch (err) {
       const wait = delayMs * attempt;
@@ -160,7 +169,12 @@ const PATTERNS = [
   // ── SSH ──────────────────────────────────────────────────────────────────
   {
     event_type : 'SSH_FAILED',
-    regex      : /Failed (?:password|publickey) for (?:invalid user )?(\S+) from ([\d.a-fA-F:]+) port/,
+    regex      : /(?:Failed (?:password|publickey) for (?:invalid user )?|Invalid user )(\S+)\s+(?:from\s+)?([\d.a-fA-F:]+)/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+  },
+  {
+    event_type : 'SSH_FAILED',
+    regex      : /Connection (?:closed|reset) by (?:invalid|authenticating)?\s*user\s+(\S+)\s+([\d.a-fA-F:]+)/i,
     extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
   },
   {
@@ -602,14 +616,28 @@ function updateOpenPorts() {
     });
 
     ports.sort((a, b) => a.port - b.port);
-    fs.writeFileSync(PORTS_FILE, JSON.stringify({ success: true, count: ports.length, data: ports }));
+    safeWriteFileSync(PORTS_FILE, JSON.stringify({ success: true, count: ports.length, data: ports }));
   } catch (err) {
-    fs.writeFileSync(PORTS_FILE, JSON.stringify({ success: true, count: 0, data: [] }));
+    safeWriteFileSync(PORTS_FILE, JSON.stringify({ success: true, count: 0, data: [] }));
   }
 }
 
 setInterval(updateOpenPorts, 5000);
 updateOpenPorts();
+
+function safeWriteFileSync(filePath, content) {
+  try {
+    if (fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath);
+      if (stat.isDirectory()) {
+        fs.rmSync(filePath, { recursive: true, force: true });
+      }
+    }
+    fs.writeFileSync(filePath, content);
+  } catch (err) {
+    console.error(`[File] Error writing to ${filePath}:`, err.message);
+  }
+}
 
 // ─────────────────────────────────────────────
 // Tailscale Mesh Status Writer
@@ -620,9 +648,9 @@ function updateTailscaleStatus() {
   try {
     const stdout = execSync('tailscale status --json 2>/dev/null', { timeout: 3000 }).toString();
     const data = JSON.parse(stdout);
-    fs.writeFileSync(TAILSCALE_FILE, JSON.stringify({ success: true, data }));
+    safeWriteFileSync(TAILSCALE_FILE, JSON.stringify({ success: true, data }));
   } catch (err) {
-    fs.writeFileSync(TAILSCALE_FILE, JSON.stringify({ success: false, data: null }));
+    safeWriteFileSync(TAILSCALE_FILE, JSON.stringify({ success: false, data: null }));
   }
 }
 
@@ -666,7 +694,7 @@ function updateRogueDevices() {
             
             // Log as SOC event
             const event = {
-              event_type: 'UNKNOWN',
+              event_type: 'FAIL2BAN_BLOCK',
               ip_address: ip,
               targeted_user: `MAC: ${mac}`,
               raw_log: `[WARNING] Unknown/Rogue device detected on LAN: ${ip} (${mac})`
@@ -678,10 +706,10 @@ function updateRogueDevices() {
       }
     });
 
-    fs.writeFileSync(TRUSTED_MACS_FILE, JSON.stringify(trustedMacs, null, 2));
-    fs.writeFileSync(LAN_DEVICES_FILE, JSON.stringify({ success: true, count: currentDevices.length, data: currentDevices }));
+    safeWriteFileSync(TRUSTED_MACS_FILE, JSON.stringify(trustedMacs, null, 2));
+    safeWriteFileSync(LAN_DEVICES_FILE, JSON.stringify({ success: true, count: currentDevices.length, data: currentDevices }));
   } catch (err) {
-    fs.writeFileSync(LAN_DEVICES_FILE, JSON.stringify({ success: false, data: [] }));
+    safeWriteFileSync(LAN_DEVICES_FILE, JSON.stringify({ success: false, data: [] }));
   }
 }
 
@@ -725,10 +753,10 @@ function updateNetworkTraffic() {
     lastTrafficTime = now;
     
     if (interfaceStats.length > 0) {
-      fs.writeFileSync(TRAFFIC_FILE, JSON.stringify({ success: true, data: interfaceStats }));
+      safeWriteFileSync(TRAFFIC_FILE, JSON.stringify({ success: true, data: interfaceStats }));
     }
   } catch (err) {
-    fs.writeFileSync(TRAFFIC_FILE, JSON.stringify({ success: false, data: [] }));
+    safeWriteFileSync(TRAFFIC_FILE, JSON.stringify({ success: false, data: [] }));
   }
 }
 
@@ -815,9 +843,9 @@ function checkLockdownStatus() {
 setInterval(checkLockdownStatus, 2000);
 
 function startCollector() {
-  // ── Primary: journalctl -u ssh (covers SSH_FAILED, SSH_SUCCESS) ───────────
-  console.log('[Collector] Starting: journalctl -t sshd -t sshd-session -f');
-  const child = spawn('journalctl', ['-t', 'sshd', '-t', 'sshd-session', '-f', '-n', '0', '--output=cat']);
+  // ── Primary: journalctl -u ssh -u sshd (covers SSH_FAILED, SSH_SUCCESS) ─────
+  console.log('[Collector] Starting: journalctl -u ssh -u sshd -t sshd -f -n 50');
+  const child = spawn('journalctl', ['-u', 'ssh', '-u', 'sshd', '-t', 'sshd', '-t', 'sshd-session', '-f', '-n', '50', '--output=cat']);
   const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
   rl.on('line', async (line) => {
     if (!line.trim()) return;

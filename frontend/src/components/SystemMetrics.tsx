@@ -84,7 +84,8 @@ export default function SystemMetrics() {
 
   if (!data) return null;
 
-  const memPercent = (data.mem.used / data.mem.total) * 100;
+  const usedRam = data.mem.active && data.mem.active > 0 ? data.mem.active : data.mem.used;
+  const memPercent = Math.min((usedRam / data.mem.total) * 100, 100);
   
   // Filter out internal loopbacks, tmpfs, and system partitions to only show real drives
   const realDisks = data.disk.filter(d => 

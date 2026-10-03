@@ -554,8 +554,9 @@ app.get('/api/system-metrics', cors(corsOptions), async (req, res) => {
         },
         mem: {
           total: mem.total,
-          used: mem.used,
-          free: mem.free,
+          used: mem.active || (mem.available ? (mem.total - mem.available) : mem.used),
+          free: mem.available || mem.free,
+          active: mem.active || mem.used,
         },
         disk: fsSize.filter(d => (d.mount === '/' || d.mount.startsWith('/mnt/') || d.mount.startsWith('/media/')) && !d.fs.includes('loop')),
         os: {
@@ -594,15 +595,8 @@ const PORT_APP_MAP = {
 };
 
 app.get('/api/open-ports', cors(corsOptions), async (req, res) => {
-  try {
-    const PORTS_FILE = '/tmp/soc_open_ports.json';
-    const raw = fs.readFileSync(PORTS_FILE, 'utf8');
-    const parsed = JSON.parse(raw);
-    res.json({ success: true, data: parsed.data || [] });
-  } catch (err) {
-    // If the file does not exist yet or fails to parse, return empty
-    res.json({ success: true, data: [] });
-  }
+  const parsed = readTmpJson('soc_open_ports.json', { data: [] });
+  res.json({ success: true, data: parsed.data || [] });
 });
 
 // ─────────────────────────────────────────────
@@ -954,45 +948,43 @@ app.get('/api/docker/logs/:container', cors(corsOptions), async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+function readTmpJson(filename, defaultValue) {
+  const paths = [`/host_tmp/${filename}`, `/tmp/${filename}`];
+  for (const p of paths) {
+    try {
+      if (fs.existsSync(p) && !fs.statSync(p).isDirectory()) {
+        const raw = fs.readFileSync(p, 'utf8');
+        return JSON.parse(raw);
+      }
+    } catch (e) {}
+  }
+  return defaultValue;
+}
+
+// ─────────────────────────────────────────────
 // 8. TAILSCALE
 // ─────────────────────────────────────────────
 app.get('/api/tailscale', cors(corsOptions), (req, res) => {
-  try {
-    const raw = fs.readFileSync('/tmp/soc_tailscale.json', 'utf8');
-    res.json(JSON.parse(raw));
-  } catch (err) {
-    res.json({ success: false, data: null });
-  }
+  const data = readTmpJson('soc_tailscale.json', { success: false, data: null });
+  res.json(data);
 });
 
 app.get('/api/lan/devices', cors(corsOptions), (req, res) => {
-  try {
-    const raw = fs.readFileSync('/tmp/soc_lan_devices.json', 'utf8');
-    res.json(JSON.parse(raw));
-  } catch (err) {
-    res.json({ success: false, data: [] });
-  }
+  const data = readTmpJson('soc_lan_devices.json', { success: false, data: [] });
+  res.json(data);
 });
 
 app.get('/api/network/traffic', cors(corsOptions), (req, res) => {
-  try {
-    const raw = fs.readFileSync('/tmp/soc_network_traffic.json', 'utf8');
-    res.json(JSON.parse(raw));
-  } catch (err) {
-    res.json({ success: false, data: [] });
-  }
+  const data = readTmpJson('soc_network_traffic.json', { success: false, data: [] });
+  res.json(data);
 });
 
 // ─────────────────────────────────────────────
 // 9. VULNERABILITY SCANNER (TRIVY)
 // ─────────────────────────────────────────────
 app.get('/api/security/cve', cors(corsOptions), (req, res) => {
-  try {
-    const raw = fs.readFileSync('/tmp/soc_cve_scan.json', 'utf8');
-    res.json({ success: true, data: JSON.parse(raw) });
-  } catch (err) {
-    res.json({ success: false, data: null });
-  }
+  const data = readTmpJson('soc_cve_scan.json', null);
+  res.json({ success: true, data });
 });
 
 app.post('/api/security/scan', cors(corsOptions), async (req, res) => {
