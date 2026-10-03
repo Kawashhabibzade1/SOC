@@ -193,29 +193,30 @@ const PATTERNS = [
     regex      : /\[sshd\] Unban ([\d.a-fA-F:]+)/,
     extract    : (m) => ({ ip_address: m[1], targeted_user: null }),
   },
-  // ── XRDP (/var/log/xrdp-sesman.log) ─────────────────────────────────────
-  // New format: [INFO ] AUTHFAIL: user=hacked ip=::ffff:100.119.82.94 time=...
+  // ── XRDP (/var/log/xrdp-sesman.log & journalctl) ─────────────────────────
   {
     event_type : 'XRDP_FAILED',
-    regex      : /AUTHFAIL: user=(\S+)\s+ip=(?:::ffff:)?([\d.]+)/i,
-    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
+    regex      : /(?:AUTHFAIL:\s+user=(\S+)\s+ip=(?:::ffff:)?([\d.]+)|authentication failure;.*?\s+rhost=(?:::ffff:)?([\d.]+)\s+user=(\S+))/i,
+    extract    : (m) => ({ targeted_user: m[1] || m[4] || 'unknown', ip_address: m[2] || m[3] || '0.0.0.0' }),
   },
-  // New format: [INFO ] Access permitted for user: kawash
-  // Combined with IP from: Received system login request from xrdp for user: kawash IP: ::ffff:100.119.82.94
+  {
+    event_type : 'XRDP_SUCCESS',
+    regex      : /lib_mod_log_peer:.*?client=\[(?:::ffff:)?([\d.]+)\]/i,
+    extract    : (m) => ({ targeted_user: 'xrdp_user', ip_address: m[1] }),
+  },
+  {
+    event_type : 'XRDP_SUCCESS',
+    regex      : /Access permitted for user:\s+(\S+)/i,
+    extract    : (m) => ({ targeted_user: m[1], ip_address: '0.0.0.0' }),
+  },
   {
     event_type : 'XRDP_SUCCESS',
     regex      : /Received system login request from xrdp for user:\s+(\S+)\s+IP:\s+(?:::ffff:)?([\d.]+)/i,
     extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
   },
-  // Legacy XRDP patterns (keep as fallback)
   {
-    event_type : 'XRDP_SUCCESS',
-    regex      : /sesman_auth.*auth\s+valid.*user\s+(\S+)\s+from\s+ip\s+([\d.]+)/i,
-    extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
-  },
-  {
-    event_type : 'XRDP_SUCCESS',
-    regex      : /login successful for user (\S+) on display.*?([\d]{1,3}(?:\.[\d]{1,3}){3})/i,
+    event_type : 'XRDP_FAILED',
+    regex      : /sesman_auth.*auth(?:fail| not valid).*?user\s+(\S+)\s+from\s+ip\s+([\d.]+)/i,
     extract    : (m) => ({ targeted_user: m[1], ip_address: m[2] }),
   },
   {
@@ -842,6 +843,29 @@ function checkLockdownStatus() {
 
 setInterval(checkLockdownStatus, 2000);
 
+function startJournalctlWatcher(unitName, tag) {
+  console.log(`[Collector] Starting journalctl watcher for ${tag} (-u ${unitName})`);
+  const child = spawn('journalctl', ['-u', unitName, '-t', unitName, '-f', '-n', '50', '--output=cat']);
+  const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
+
+  rl.on('line', async (line) => {
+    if (!line.trim()) return;
+    const parsed = parseLine(line);
+    if (!parsed) return;
+    console.log(`[DEBUG ${tag}] ${line}`);
+    const enriched = enrichWithGeo(parsed);
+    await insertEvent(enriched);
+  });
+
+  child.on('close', (code) => {
+    console.warn(`[${tag}-Journalctl] Process exited (code ${code}). Restarting in 10s...`);
+    setTimeout(() => startJournalctlWatcher(unitName, tag), 10000);
+  });
+  child.on('error', (err) => {
+    console.error(`[${tag}-Journalctl] Failed to start: ${err.message}`);
+  });
+}
+
 function startCollector() {
   // ── Primary: journalctl -u ssh -u sshd (covers SSH_FAILED, SSH_SUCCESS) ─────
   console.log('[Collector] Starting: journalctl -u ssh -u sshd -t sshd -f -n 50');
@@ -869,8 +893,8 @@ function startCollector() {
   });
 
   // ── Extra log sources (XRDP, FTP/SFTP, SMB) ───────────────────────────────
-  // Use journalctl for all services (avoids inotify watch limit from Docker)
-  startJournalctlWatcher('xrdp-sesman',  'XRDP');
+  startJournalctlWatcher('xrdp-sesman',  'XRDP-Sesman');
+  startJournalctlWatcher('xrdp',         'XRDP-Core');
   startJournalctlWatcher('smbd',         'SMB');
   startJournalctlWatcher('vsftpd',       'FTP');
   startJournalctlWatcher('proftpd',      'ProFTPD');
