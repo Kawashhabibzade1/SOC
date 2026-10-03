@@ -65,6 +65,8 @@ services:
       - /tmp/soc_network_traffic.json:/tmp/soc_network_traffic.json:ro
       - /tmp/soc_cve_scan.json:/tmp/soc_cve_scan.json:ro
       - /tmp:/host_tmp
+      - /media/daten:/media/daten:ro
+      - /media/wd-server:/media/wd-server:ro
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       # 1. Join the existing MariaDB network so we can reach 'nextcloud-db' by hostname
