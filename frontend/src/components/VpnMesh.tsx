@@ -38,7 +38,7 @@ export default function VpnMesh() {
 
   useEffect(() => {
     fetchTailscale();
-    const interval = setInterval(fetchTailscale, 10000);
+    const interval = setInterval(fetchTailscale, 1000);
     return () => clearInterval(interval);
   }, []);
 

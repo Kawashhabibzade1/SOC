@@ -27,7 +27,7 @@ export default function LanMonitor() {
     };
 
     fetchDevices();
-    const int = setInterval(fetchDevices, 5000);
+    const int = setInterval(fetchDevices, 1000);
     return () => clearInterval(int);
   }, []);
 

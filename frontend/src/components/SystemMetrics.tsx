@@ -33,7 +33,7 @@ export default function SystemMetrics() {
 
   useEffect(() => {
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 3000); // Poll every 3s
+    const interval = setInterval(fetchMetrics, 1000); // Poll every 1s for live data
     return () => clearInterval(interval);
   }, []);
 

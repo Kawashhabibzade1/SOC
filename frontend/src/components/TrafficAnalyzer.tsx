@@ -28,7 +28,7 @@ export default function TrafficAnalyzer() {
     };
 
     fetchTraffic();
-    const int = setInterval(fetchTraffic, 2000);
+    const int = setInterval(fetchTraffic, 1000);
     return () => clearInterval(int);
   }, []);
 

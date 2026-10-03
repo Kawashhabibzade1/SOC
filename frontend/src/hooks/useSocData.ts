@@ -67,6 +67,7 @@ export interface SocDataState {
 const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
 const MAX_EVENTS   = 300; // Rolling buffer size
 const FETCH_LIMIT  = 100; // Historical events to load on startup
+const POLL_INTERVAL = 1000; // 1 second polling for live data
 
 // ─────────────────────────────────────────────
 // Hook
@@ -85,6 +86,12 @@ export function useSocData(): SocDataState {
   });
   const [isLockdown, setIsLockdown] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+
+  // ── FIX: Use a ref to track events for the socket handler ──
+  // This avoids the stale closure problem AND removes `events`
+  // from the useEffect dependency array (which was causing infinite loops).
+  const eventsRef = useRef<SecurityEvent[]>([]);
+  eventsRef.current = events;
 
   const pushEvent = useCallback((event: SecurityEvent) => {
     setEvents(prev => [event, ...prev].slice(0, MAX_EVENTS));
@@ -118,7 +125,7 @@ export function useSocData(): SocDataState {
     };
 
     fetchHistory();
-    const historyInterval = setInterval(fetchHistory, 1000);
+    const historyInterval = setInterval(fetchHistory, POLL_INTERVAL);
 
     // Initial fetch of active sessions
     const fetchActiveSessions = () => {
@@ -134,7 +141,7 @@ export function useSocData(): SocDataState {
     fetchActiveSessions();
 
     // Poll active sessions every 1 second
-    const sessionInterval = setInterval(fetchActiveSessions, 1000);
+    const sessionInterval = setInterval(fetchActiveSessions, POLL_INTERVAL);
 
     // ── 2. Establish Socket.io connection ─────────────────
     const SOCKET_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://heimserver.tail2ad9cd.ts.net';
@@ -185,9 +192,9 @@ export function useSocData(): SocDataState {
         const isFailed = ['SSH_FAILED', 'XRDP_FAILED', 'FTP_FAILED', 'SFTP_FAILED'].includes(normalizedEvent.event_type);
         const isBlock = normalizedEvent.event_type === 'FAIL2BAN_BLOCK';
         const isSuccess = ['SSH_SUCCESS', 'XRDP_SUCCESS', 'FTP_SUCCESS', 'SFTP_SUCCESS'].includes(normalizedEvent.event_type);
-        // Unique countries will be roughly estimated on the fly for new events, 
-        // to avoid recalculating the entire set if it's large.
-        const isNewCountry = normalizedEvent.country && !events.some(e => e.country === normalizedEvent.country) ? 1 : 0;
+        // FIX: Use eventsRef.current instead of stale `events` closure
+        const currentEvents = eventsRef.current;
+        const isNewCountry = normalizedEvent.country && !currentEvents.some(e => e.country === normalizedEvent.country) ? 1 : 0;
         
         return {
           totalEvents    : prev.totalEvents + 1,
@@ -205,7 +212,10 @@ export function useSocData(): SocDataState {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [pushEvent, events]);
+    // FIX: Removed `events` from dependency array — it was causing infinite re-render loops.
+    // The socket + intervals only need to be set up once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pushEvent]);
 
   return { events, activeSessions, isConnected, latestEvent, stats, isLockdown };
 }

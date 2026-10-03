@@ -26,7 +26,7 @@ export default function BlockedIpsTable() {
 
   useEffect(() => {
     fetchBlockedIps();
-    const interval = setInterval(fetchBlockedIps, 10000); // Poll every 10s
+    const interval = setInterval(fetchBlockedIps, 1000); // Poll every 1s for live data
     return () => clearInterval(interval);
   }, []);
 

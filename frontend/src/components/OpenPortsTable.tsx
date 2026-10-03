@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Server, Activity, ShieldCheck, AlertTriangle, RefreshCw, Box, Shield, Cloud, Folder, Film, Terminal, Database, Monitor, Globe, Lock, Upload } from 'lucide-react';
 
 interface OpenPort {
@@ -96,7 +96,7 @@ export default function OpenPortsTable() {
 
   useEffect(() => {
     fetchPorts();
-    const interval = setInterval(fetchPorts, 10000);
+    const interval = setInterval(fetchPorts, 1000);
     return () => clearInterval(interval);
   }, []);
 
