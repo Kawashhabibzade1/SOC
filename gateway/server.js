@@ -26,7 +26,7 @@ const mysql     = require('mysql2/promise');
 const { authenticator, totp } = require('otplib');
 const generateURI = (opts) => authenticator.keyuri(opts.label, opts.issuer, opts.secret);
 const qrcode    = require('qrcode');
-const { exec, spawn }  = require('child_process');
+const { exec, execSync, spawn }  = require('child_process');
 const util      = require('util');
 const geoip     = require('geoip-lite');
 const si        = require('systeminformation');
@@ -71,13 +71,25 @@ const config = {
 // ─────────────────────────────────────────────
 let pool = null;
 
+function resolveDbHost(host) {
+  try {
+    const ip = execSync(`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' nextcloud-db 2>/dev/null`)
+      .toString()
+      .trim();
+    if (ip) return ip;
+  } catch (e) {}
+  return host || '127.0.0.1';
+}
+
 async function createPool(retries = 10, delayMs = 2000) {
+  const dbConfig = { ...config.db, host: resolveDbHost(config.db.host) };
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      pool = mysql.createPool(config.db);
+      dbConfig.host = resolveDbHost(config.db.host);
+      pool = mysql.createPool(dbConfig);
       const conn = await pool.getConnection();
       conn.release();
-      console.log('[DB] Connected to MariaDB pool successfully.');
+      console.log(`[DB] Connected to MariaDB pool successfully (${dbConfig.host}).`);
       return;
     } catch (err) {
       const wait = delayMs * attempt;
