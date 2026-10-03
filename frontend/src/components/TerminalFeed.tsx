@@ -38,13 +38,10 @@ function formatLine(event: SecurityEvent): string {
 
 function parseUtcDate(timestamp?: string | null): Date {
   if (!timestamp) return new Date();
-  let clean = String(timestamp).trim();
-  if (clean.includes(' ') && !clean.includes('T')) {
-    clean = clean.replace(' ', 'T');
-  }
-  if (!clean.endsWith('Z') && !/[+-]\d{2}(?::?\d{2})?$/.test(clean)) {
-    clean += 'Z';
-  }
+  const direct = new Date(timestamp);
+  if (!isNaN(direct.getTime())) return direct;
+  
+  let clean = String(timestamp).trim().replace(' ', 'T');
   const d = new Date(clean);
   return isNaN(d.getTime()) ? new Date() : d;
 }

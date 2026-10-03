@@ -149,6 +149,41 @@ app.get('/api/health', (req, res) => {
 });
 
 /**
+ * POST /internal/notify
+ * Called by Phase 1 Collector (index.js) whenever a new security event occurs.
+ * Immediately broadcasts the event over Socket.io to all connected frontend clients.
+ */
+app.post('/internal/notify', cors(corsOptions), (req, res) => {
+  const apiKey = req.headers['x-internal-key'];
+  if (config.internalApiKey && apiKey !== config.internalApiKey) {
+    console.warn(`[Gateway] /internal/notify API key mismatch (received: ${apiKey})`);
+  }
+
+  const event = req.body;
+  if (!event || !event.event_type) {
+    return res.status(400).json({ success: false, error: 'Invalid event payload' });
+  }
+
+  const payload = {
+    id: event.id || Date.now(),
+    event_type: event.event_type,
+    ip_address: event.ip_address || '0.0.0.0',
+    targeted_user: event.targeted_user || null,
+    country: event.country || null,
+    city: event.city || null,
+    latitude: event.latitude || null,
+    longitude: event.longitude || null,
+    timestamp: event.timestamp || new Date().toISOString(),
+    raw_log: event.raw_log || null,
+  };
+
+  console.log(`[Socket.io] Broadcasting live event [${payload.event_type}] from ${payload.ip_address} to ${io.engine.clientsCount} clients`);
+  io.emit('new_event', payload);
+
+  res.json({ success: true, broadcasted: true, clients: io.engine.clientsCount });
+});
+
+/**
  * GET /api/events/recent
  * Returns the last 100 security events, newest first.
  * Called once by the frontend on initial page load to populate the dashboard.
